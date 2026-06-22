@@ -138,8 +138,9 @@ class GameCog(commands.Cog):
     @app_commands.describe(players="Number of players (5-8)", timeout="Hours per turn (default 24)")
     @app_commands.checks.has_permissions(administrator=True)
     async def setup(self, interaction: Interaction, players: int = 6, timeout: int = 24):
+        await interaction.response.defer()
         if not 5 <= players <= 8:
-            await interaction.response.send_message("Player count must be between 5 and 8.", ephemeral=True)
+            await interaction.followup.send("Player count must be between 5 and 8.", ephemeral=True)
             return
         session = get_session()
         try:
@@ -161,7 +162,7 @@ class GameCog(commands.Cog):
                 ),
                 color=Color.dark_red())
             embed.set_footer(text="Admin: use /start when enough players have joined.")
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
         finally:
             session.close()
 
