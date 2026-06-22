@@ -53,7 +53,7 @@ class Tone(enum.Enum):
     powerful_commendation = "powerful_commendation"
 
 
-class RemarkType(emum.Enum):
+class RemarkType(enum.Enum):
     raise_suspicion = "raise_suspicion"
     lower_suspicion = "lower_suspicion"
     restore_vp = "restore_vp"
