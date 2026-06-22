@@ -146,7 +146,7 @@ class GameCog(commands.Cog):
         try:
             existing = session.query(Game).filter_by(guild_id=interaction.guild_id).first()
             if existing:
-                existing.status = GameStatus.finished
+                session.delete(existing)
                 session.commit()
             game = Game(guild_id=interaction.guild_id, channel_id=interaction.channel_id, status=GameStatus.lobby, timeout_hours=timeout)
             game.player_count = players
