@@ -113,18 +113,18 @@ class JoinModal(Modal):
             alias = self.alias_input.value.strip()
             existing_alias = session.query(Player).filter_by(game_id=game.game_id, alias=alias).first()
             if existing_alias:
-                await interaction.response.send_message("That alias is already taken. Please use `/join` again and choose a different one.", ephemeral=True)
+                await interaction.followup.send("That alias is already taken. Please use `/join` again and choose a different one.", ephemeral=True)
                 return
             try:
                 await interaction.user.send(f"✅ You've joined **L's Game** as **{alias}**. Keep your DMs open — the game will contact you here.")
             except Forbidden:
-                await interaction.response.send_message("A player failed to join — please ensure your DMs are open.")
+                await interaction.followup.send("A player failed to join — please ensure your DMs are open.")
                 return
             player = Player(game_id=game.game_id, discord_id=interaction.user.id, display_name=interaction.user.display_name, alias=alias)
             session.add(player)
             session.commit()
             current_count = session.query(Player).filter_by(game_id=game.game_id).count()
-            await interaction.response.send_message(f"A new player has joined the lobby. **{current_count}/{game.player_count}** players ready.")
+            await interaction.followup.send(f"A new player has joined the lobby. **{current_count}/{game.player_count}** players ready.")
         finally:
             session.close()
 
@@ -144,9 +144,9 @@ class GameCog(commands.Cog):
         session = get_session()
         try:
             existing = session.query(Game).filter_by(guild_id=interaction.guild_id).first()
-            if existing and existing.status != GameStatus.finished:
-                await interaction.response.send_message("A game is already running or in lobby. End it first.", ephemeral=True)
-                return
+            if existing:
+                session.delete(existing)
+                session.commit()
             game = Game(guild_id=interaction.guild_id, channel_id=interaction.channel_id, status=GameStatus.lobby, timeout_hours=timeout)
             game.player_count = players
             session.add(game)
@@ -363,7 +363,7 @@ class GameCog(commands.Cog):
                 if not game.l_phase_done:
                     l_player = next((i for i in active_players if i.role == Role.l), None)
                     if l_player:
-                        l_member = guild.get_member(l_player.discord_id)
+                        l_member = guild.get_member(l_player.discord_id) or await interaction.guild.fetch_member(player.discord_id)
                         if l_member:
                             options = [SelectOption(label=i.alias, value=str(i.player_id)) for i in active_players if i.player_id != l_player.player_id]
                             try:
@@ -375,7 +375,7 @@ class GameCog(commands.Cog):
                 if game.kira_phase_target == 0:
                     kira_player = next((i for i in active_players if i.role == Role.kira), None)
                     if kira_player:
-                        kira_member = guild.get_member(kira_player.discord_id)
+                        kira_member = guild.get_member(kira_player.discord_id) or await interaction.guild.fetch_member(player.discord_id)
                         if kira_member:
                             try:
                                 await kira_member.send(f"**Kira's Judgment — Round {game.current_round}**\nDo you wish to eliminate a player?", view=KiraJudgmentView(resolution_cog, kira_player, game))
@@ -393,7 +393,7 @@ class GameCog(commands.Cog):
     async def cancel(self, interaction: Interaction):
         session = get_session()
         try:
-            game = session.query(Game).filter_by(guild_id=interaction.guild_id, status=GameStatus.lobby).first()
+            game = session.query(Game).filter(Game.guild_id == interaction.guild_id, Game.status=GameStatus.active).first()
             if not game:
                 await interaction.response.send_message("No open lobby found.", ephemeral=True)
                 return
