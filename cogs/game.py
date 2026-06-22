@@ -112,19 +112,23 @@ class JoinModal(Modal):
             game = session.query(Game).get(self.game.game_id)
             alias = self.alias_input.value.strip()
             existing_alias = session.query(Player).filter_by(game_id=game.game_id, alias=alias).first()
+            existing_player = session.query(Player).filter_by(game_id=game.game_id, discord_id=interaction.user.id).first()
             if existing_alias:
-                await interaction.followup.send("That alias is already taken. Please use `/join` again and choose a different one.", ephemeral=True)
+                await interaction.response.send_message("That alias is already taken. Please use `/join` again and choose a different one.", ephemeral=True)
+                return
+            if existing_player:
+                await interaction.response.send_message("You're already joined.", ephemeral=True)
                 return
             try:
                 await interaction.user.send(f"✅ You've joined **L's Game** as **{alias}**. Keep your DMs open — the game will contact you here.")
             except Forbidden:
-                await interaction.followup.send("A player failed to join — please ensure your DMs are open.")
+                await interaction.response.send_message("A player failed to join — please ensure your DMs are open.")
                 return
             player = Player(game_id=game.game_id, discord_id=interaction.user.id, display_name=interaction.user.display_name, alias=alias)
             session.add(player)
             session.commit()
             current_count = session.query(Player).filter_by(game_id=game.game_id).count()
-            await interaction.followup.send(f"A new player has joined the lobby. **{current_count}/{game.player_count}** players ready.")
+            await interaction.response.send_message(f"A new player has joined the lobby. **{current_count}/{game.player_count}** players ready.")
         finally:
             session.close()
 
