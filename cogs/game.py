@@ -391,15 +391,16 @@ class GameCog(commands.Cog):
     @app_commands.command(name="end", description="End the current lobby. Admin only.")
     @app_commands.checks.has_permissions(administrator=True)
     async def end(self, interaction: Interaction):
+        await interaction.response.defer(ephemeral=True)
         session = get_session()
         try:
             game = session.query(Game).filter_by(guild_id=interaction.guild_id).first()
             if not game:
-                await interaction.response.send_message("No open lobby found.", ephemeral=True)
+                await interaction.followup.send("No open lobby found.", ephemeral=True)
                 return
             session.delete(game)
             session.commit()
-            await interaction.response.send_message("Game cancelled.")
+            await interaction.followup.send("Game cancelled.")
         finally:
             session.close()
 
