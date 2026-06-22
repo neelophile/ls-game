@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Boolean, Enum, DateTime, ForeignKey, Text, BigInteger, UniqueConstraint
 from sqlalchemy.orm import declarative_base, relationship
 from datetime import datetime, timezone
-from enum import Enum
+import enum
 
 
 Base = declarative_base()
@@ -11,27 +11,27 @@ def utcnow():
     return datetime.now(timezone.utc)
 
 
-class GameStatus(Enum):
+class GameStatus(enum.Enum):
     lobby = "lobby"
     active = "active"
     finished = "finished"
 
 
-class Phase(Enum):
+class Phase(enum.Enum):
     debate = "debate"
     justice = "justice"
     l_reasoning = "l_reasoning"
     kira_judgment = "kira_judgment"
 
 
-class Role(Enum):
+class Role(enum.Enum):
     kira = "kira"
     l = "l"
     worshipper = "worshipper"
     investigator = "investigator"
 
 
-class ProposalStatus(Enum):
+class ProposalStatus(enum.Enum):
     pending = "pending"
     agreed = "agreed"
     disagreed = "disagreed"
@@ -39,12 +39,12 @@ class ProposalStatus(Enum):
     reversed = "reversed"
 
 
-class ArgumentStatus(Enum):
+class ArgumentStatus(enum.Enum):
     active = "active"
     resolved = "resolved"
 
 
-class Tone(Enum):
+class Tone(enum.Enum):
     weak_accusation = "weak_accusation"
     powerful_accusation = "powerful_accusation"
     gentle_accusation = "gentle_accusation"
@@ -53,14 +53,14 @@ class Tone(Enum):
     powerful_commendation = "powerful_commendation"
 
 
-class RemarkType(Enum):
+class RemarkType(emum.Enum):
     raise_suspicion = "raise_suspicion"
     lower_suspicion = "lower_suspicion"
     restore_vp = "restore_vp"
     raise_max_vp = "raise_max_vp"
 
 
-class InformationType(Enum):
+class InformationType(enum.Enum):
     two_possible_l = "two_possible_l"
     two_not_l = "two_not_l"
     one_worshipper = "one_worshipper"
