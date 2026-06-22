@@ -198,19 +198,20 @@ class GameCog(commands.Cog):
     @app_commands.command(name="start", description="Start the game. Admin only.")
     @app_commands.checks.has_permissions(administrator=True)
     async def start(self, interaction: Interaction):
+        await interaction.response.defer()
         session = get_session()
         try:
             game = session.query(Game).filter_by(guild_id=interaction.guild_id, status=GameStatus.lobby).first()
             if not game:
-                await interaction.response.send_message("No open lobby found.", ephemeral=True)
+                await interaction.followup.send("No open lobby found.", ephemeral=True)
                 return
             if wrong_channel(interaction, game):
-                await interaction.response.send_message("Please use this command in the game channel.", ephemeral=True)
+                await interaction.followup.send("Please use this command in the game channel.", ephemeral=True)
                 return
             required = game.player_count
             players = session.query(Player).filter_by(game_id=game.game_id).all()
             if len(players) < required:
-                await interaction.response.send_message(f"Not enough players. Need {required}, have {len(players)}.", ephemeral=True)
+                await interaction.followup.send(f"Not enough players. Need {required}, have {len(players)}.", ephemeral=True)
                 return
             assign_roles(players)
             shuffle(players)
@@ -236,7 +237,7 @@ class GameCog(commands.Cog):
             game.current_turn_index = 0
             session.commit()
             for player in players:
-                member = interaction.guild.get_member(player.discord_id)
+                member = interaction.guild.get_member(player.discord_id) or await interaction.guild.fetch_member(player.discord_id)
                 if not member:
                     continue
                 role_descriptions = {
@@ -266,7 +267,7 @@ class GameCog(commands.Cog):
                               f"**Round 1 — Debate Phase**\n"
                               f"Awaiting the first player's turn."
                               ), color=Color.dark_red())
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
             first_turn = Turn(game_id=game.game_id, round=1, turn_index=0, player_id=first_player.player_id, phase=Phase.debate)
             session.add(first_turn)
             session.commit()
@@ -276,15 +277,9 @@ class GameCog(commands.Cog):
 
 
     async def _prompt_turn(self, interaction: Interaction, game: Game, player: Player, session):
-        member = interaction.guild.get_member(player.discord_id)
-        if not member:
-            return
-        try:
-            await member.send(f"**It's your turn!** — Round {game.current_round}, Debate Phase.\nYour VP: {player.vp_current}/{player.vp_max}\n\nUse `/action` to make your move.")
-        except Forbidden:
-            channel = interaction.guild.get_channel(game.channel_id)
-            if channel:
-                await channel.send(f"{member.mention} — your DMs are closed. Please open them to play.")
+        debate_cog = self.bot.get_cog("DebateCog")
+        if debate_cog:
+            await debate_cog.prompt_turn(interaction.guild, game, player)
 
     
     @app_commands.command(name="forfeit", description="Force-forfeit a player. Admin only.")
