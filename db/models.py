@@ -90,7 +90,7 @@ class Game(Base):
 class Player(Base):
     __tablename__ = "players"
     player_id = Column(Integer, primary_key=True, autoincrement=True)
-    game_id = Column(Integer, ForeignKey("games.game_id"), nullable=False)
+    game_id = Column(Integer, ForeignKey("games.game_id", ondelete="CASCADE"), nullable=False)
     discord_id = Column(BigInteger, nullable=False)
     display_name = Column(String(64), nullable=False)
     role = Column(Enum(Role))
@@ -111,7 +111,7 @@ class Player(Base):
 class TrustMatrix(Base):
     __tablename__ = "trust_matrix"
     trust_id = Column(Integer, primary_key=True, autoincrement=True)
-    game_id = Column(Integer, ForeignKey("games.game_id"), nullable=False)
+    game_id = Column(Integer, ForeignKey("games.game_id", ondelete="CASCADE"), nullable=False)
     player_a_id = Column(Integer, ForeignKey("players.player_id"), nullable=False)
     player_b_id = Column(Integer, ForeignKey("players.player_id"), nullable=False)
     trust_a_to_b = Column(Integer, default=0)
@@ -126,7 +126,7 @@ class TrustMatrix(Base):
 class Information(Base):
     __tablename__ = "information"
     info_id = Column(Integer, primary_key=True, autoincrement=True)
-    game_id = Column(Integer, ForeignKey("games.game_id"), nullable=False)
+    game_id = Column(Integer, ForeignKey("games.game_id", ondelete="CASCADE"), nullable=False)
     owner_id = Column(Integer, ForeignKey("players.player_id"), nullable=False)
     target_id = Column(Integer, ForeignKey("players.player_id"), nullable=False)
     info_type = Column(Enum(InformationType))
@@ -139,7 +139,7 @@ class Information(Base):
 class Turn(Base):
     __tablename__ = "turns"
     turn_id = Column(Integer, primary_key=True, autoincrement=True)
-    game_id = Column(Integer, ForeignKey("games.game_id"), nullable=False)
+    game_id = Column(Integer, ForeignKey("games.game_id", ondelete="CASCADE"), nullable=False)
     round = Column(Integer, nullable=False)
     turn_index = Column(Integer, nullable=False)
     player_id = Column(Integer, ForeignKey("players.player_id"), nullable=False)
@@ -174,7 +174,7 @@ class Proposal(Base):
 class ProposalResponse(Base):
     __tablename__ = "proposal_responses"
     response_id = Column(Integer, primary_key=True, autoincrement=True)
-    proposal_id = Column(Integer, ForeignKey("proposals.proposal_id"), nullable=False)
+    proposal_id = Column(Integer, ForeignKey("proposals.proposal_id", ondelete="CASCADE"), nullable=False)
     player_id = Column(Integer, ForeignKey("players.player_id"), nullable=False)
     response = Column(String(16))
     contacted_at = Column(DateTime)
@@ -186,7 +186,7 @@ class ProposalResponse(Base):
 class Argument(Base):
     __tablename__ = "arguments"
     argument_id = Column(Integer, primary_key=True, autoincrement=True)
-    proposal_id = Column(Integer, ForeignKey("proposals.proposal_id"), nullable=False)
+    proposal_id = Column(Integer, ForeignKey("proposals.proposal_id", ondelete="CASCADE"), nullable=False)
     defender_id = Column(Integer, ForeignKey("players.player_id"), nullable=False)
     attacker_id = Column(Integer, ForeignKey("players.player_id"), nullable=False)
     status = Column(Enum(ArgumentStatus), default=ArgumentStatus.active)
@@ -201,7 +201,7 @@ class Argument(Base):
 class Rebuttal(Base):
     __tablename__ = "rebuttals"
     rebuttal_id = Column(Integer, primary_key=True, autoincrement=True)
-    argument_id = Column(Integer, ForeignKey("arguments.argument_id"), nullable=False)
+    argument_id = Column(Integer, ForeignKey("arguments.argument_id", ondelete="CASCADE"), nullable=False)
     player_id = Column(Integer, ForeignKey("players.player_id"), nullable=False)
     rebuttal_number = Column(Integer, nullable=False)
     message = Column(Text)
@@ -216,7 +216,7 @@ class Rebuttal(Base):
 class Vote(Base):
     __tablename__ = "votes"
     vote_id = Column(Integer, primary_key=True, autoincrement=True)
-    game_id = Column(Integer, ForeignKey("games.game_id"), nullable=False)
+    game_id = Column(Integer, ForeignKey("games.game_id", ondelete="CASCADE"), nullable=False)
     round = Column(Integer, nullable=False)
     voter_id = Column(Integer, ForeignKey("players.player_id"), nullable=False)
     target_id = Column(Integer, ForeignKey("players.player_id"), nullable=False)
