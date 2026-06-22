@@ -13,7 +13,7 @@ _session = None
 def get_engine():
     global _engine
     if _engine is None:
-        _engine = create_engine(getenv("URI"))
+        _engine = create_engine(getenv("URI"), pool_recycle=3600, pool_pre_ping=True)
     return _engine
 
 
