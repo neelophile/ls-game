@@ -393,7 +393,7 @@ class GameCog(commands.Cog):
     async def cancel(self, interaction: Interaction):
         session = get_session()
         try:
-            game = session.query(Game).filter(Game.guild_id == interaction.guild_id, Game.status=GameStatus.active).first()
+            game = session.query(Game).filter(Game.guild_id == interaction.guild_id, Game.status != GameStatus.active).first()
             if not game:
                 await interaction.response.send_message("No open lobby found.", ephemeral=True)
                 return
