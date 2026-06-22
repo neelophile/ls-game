@@ -145,7 +145,7 @@ class GameCog(commands.Cog):
         try:
             existing = session.query(Game).filter_by(guild_id=interaction.guild_id).first()
             if existing:
-                session.delete(existing)
+                existing.status = GameStatus.finished
                 session.commit()
             game = Game(guild_id=interaction.guild_id, channel_id=interaction.channel_id, status=GameStatus.lobby, timeout_hours=timeout)
             game.player_count = players
@@ -398,7 +398,7 @@ class GameCog(commands.Cog):
             if not game:
                 await interaction.followup.send("No open lobby found.", ephemeral=True)
                 return
-            session.delete(game)
+            game.status = GameStatus.finished
             session.commit()
             await interaction.followup.send("Game cancelled.")
         finally:
