@@ -388,18 +388,18 @@ class GameCog(commands.Cog):
             session.close()
 
 
-    @app_commands.command(name="cancel", description="Cancel the current lobby. Admin only.")
+    @app_commands.command(name="end", description="End the current lobby. Admin only.")
     @app_commands.checks.has_permissions(administrator=True)
-    async def cancel(self, interaction: Interaction):
+    async def end(self, interaction: Interaction):
         session = get_session()
         try:
-            game = session.query(Game).filter(Game.guild_id == interaction.guild_id, Game.status != GameStatus.active).first()
+            game = session.query(Game).filter_by(guild_id=interaction.guild_id).first()
             if not game:
                 await interaction.response.send_message("No open lobby found.", ephemeral=True)
                 return
             session.delete(game)
             session.commit()
-            await interaction.response.send_message("Lobby cancelled.")
+            await interaction.response.send_message("Game cancelled.")
         finally:
             session.close()
 
@@ -408,7 +408,7 @@ class GameCog(commands.Cog):
     @start.error
     @forfeit.error
     @resume.error
-    @cancel.error
+    @end.error
     async def admin_error(self, interaction: Interaction, error: app_commands.AppCommandError):
         if isinstance(error, app_commands.MissingPermissions):
             await interaction.response.send_message("You need administrator permissions for this.", ephemeral=True)
