@@ -21,12 +21,12 @@ async def timeout_check():
     try:
         now = utcnow()
         timed_out = session.query(Player).filter(Player.timeout_at != None, Player.timeout_at <= now, Player.is_eliminated == False).all()
-        for player in timed_out:
-            player.timeout_at = None
+        for i in timed_out:
+            i.timeout_at = None
             session.commit()
             debate_cog = bot.get_cog("DebateCog")
             if debate_cog:
-                await debate_cog.auto_pass(player.game_id, player)
+                await debate_cog.auto_pass(i.game_id, i)
     finally:
         session.close()
 
