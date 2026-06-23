@@ -577,8 +577,11 @@ class DebateCog(commands.Cog):
                 await justice_cog.start_voting(guild, game, active_players, session)
         else:
             current_turn = session.query(Turn).filter_by(game_id=game.game_id, round=game.current_round, turn_index=game.current_turn_index).first()
-            current_pos = next(i for i, j in enumerate(active_players) if j.player_id == current_turn.player_id)
-            next_player = active_players[(current_pos + 1) % len(active_players)]
+            current_pos = next((i for i, j in enumerate(active_players) if j.player_id == current_turn.player_id), None)
+            if current_pos is None:
+                next_player = active_players[0]
+            else:
+                next_player = active_players[(current_pos + 1) % len(active_players)]
             game.current_turn_index += 1
             next_player.vp_current = min(next_player.vp_current + 40, next_player.vp_max)
             new_turn = Turn(game_id=game.game_id, round=game.current_round, turn_index=game.current_turn_index, player_id=next_player.player_id, phase=Phase.debate)
