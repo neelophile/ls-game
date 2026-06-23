@@ -605,7 +605,7 @@ class DebateCog(commands.Cog):
         session.commit()
         player = session.query(Player).get(next_response.player_id)
         game = session.query(Game).get(proposal.game_id)
-        member = interaction.guild.get_member(player.discord_id)
+        member = self.bot.get_guild(game.guild_id).get_member(player.discord_id)
         if not member:
             next_response.response = "pass"
             next_response.responded_at = utcnow()
@@ -662,14 +662,14 @@ class DebateCog(commands.Cog):
     async def resolve_proposal(self, interaction: Interaction, proposal: Proposal, reversed: bool, session):
         game = session.query(Game).get(proposal.game_id)
         target = session.query(Player).get(proposal.target_id)
-        channel = interaction.guild.get_channel(game.channel_id)
+        channel = self.bot.get_guild(game.guild_id).get_channel(game.channel_id)
         await self.apply_and_announce_proposal(channel, proposal, target, reversed, session)
         if reversed:
             proposal.status = ProposalStatus.reversed
         else:
             proposal.status = ProposalStatus.passed_through
         session.commit()
-        guild = interaction.guild
+        guild = self.bot.get_guild(game.guild_id)
         await self.advance_turn(game, session, guild)
 
 
@@ -725,7 +725,7 @@ class DebateCog(commands.Cog):
         is_defender = argument.current_rebuttal_number % 2 == 1
         player_id = argument.defender_id if is_defender else argument.attacker_id
         player = session.query(Player).get(player_id)
-        member = interaction.guild.get_member(player.discord_id)
+        member = self.bot.get_guild(game.guild_id).get_member(player.discord_id)
         if not member:
             await self.resolve_argument_pass(argument_id, player_id, interaction)
             return
