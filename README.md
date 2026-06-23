@@ -63,6 +63,6 @@ Refer to `Death_Note_L's_Game.pdf` included in this repository.
 
 ## Credits
 
-Game design: neelophile
+Game design: neelophile  
 Based on *Death Note* by Tsugumi Ohba and Takeshi Obata
 
