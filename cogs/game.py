@@ -150,7 +150,7 @@ class GameCog(commands.Cog):
         try:
             existing = session.query(Game).filter_by(guild_id=interaction.guild_id).first()
             if existing:
-                session.delete(existing)
+                session.execute(__import__('sqlalchemy').text("delete from games where game_id = :id"), {"id": existing.game_id})
                 session.commit()
             game = Game(guild_id=interaction.guild_id, channel_id=interaction.channel_id, status=GameStatus.lobby, timeout_hours=timeout)
             game.player_count = players
