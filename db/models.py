@@ -112,8 +112,8 @@ class TrustMatrix(Base):
     __tablename__ = "trust_matrix"
     trust_id = Column(Integer, primary_key=True, autoincrement=True)
     game_id = Column(Integer, ForeignKey("games.game_id", ondelete="CASCADE"), nullable=False)
-    player_a_id = Column(Integer, ForeignKey("players.player_id"), nullable=False)
-    player_b_id = Column(Integer, ForeignKey("players.player_id"), nullable=False)
+    player_a_id = Column(Integer, ForeignKey("players.player_id", ondelete="CASCADE"), nullable=False)
+    player_b_id = Column(Integer, ForeignKey("players.player_id", ondelete="CASCADE"), nullable=False)
     trust_a_to_b = Column(Integer, default=0)
     trust_b_to_a = Column(Integer, default=0)
     player_a = relationship("Player", foreign_keys=[player_a_id])
@@ -127,8 +127,8 @@ class Information(Base):
     __tablename__ = "information"
     info_id = Column(Integer, primary_key=True, autoincrement=True)
     game_id = Column(Integer, ForeignKey("games.game_id", ondelete="CASCADE"), nullable=False)
-    owner_id = Column(Integer, ForeignKey("players.player_id"), nullable=False)
-    target_id = Column(Integer, ForeignKey("players.player_id"), nullable=False)
+    owner_id = Column(Integer, ForeignKey("players.player_id", ondelete="CASCADE"), nullable=False)
+    target_id = Column(Integer, ForeignKey("players.player_id", ondelete="CASCADE"), nullable=False)
     info_type = Column(Enum(InformationType))
     content = Column(Text)
     is_sent = Column(Boolean, default=False)
@@ -142,7 +142,7 @@ class Turn(Base):
     game_id = Column(Integer, ForeignKey("games.game_id", ondelete="CASCADE"), nullable=False)
     round = Column(Integer, nullable=False)
     turn_index = Column(Integer, nullable=False)
-    player_id = Column(Integer, ForeignKey("players.player_id"), nullable=False)
+    player_id = Column(Integer, ForeignKey("players.player_id", ondelete="CASCADE"), nullable=False)
     phase = Column(Enum(Phase), nullable=False)
     action_taken = Column(String(64))
     completed_at = Column(DateTime)
@@ -154,7 +154,7 @@ class Turn(Base):
 class Proposal(Base):
     __tablename__ = "proposals"
     proposal_id = Column(Integer, primary_key=True, autoincrement=True)
-    game_id = Column(Integer, ForeignKey("games.game_id"), nullable=False)
+    game_id = Column(Integer, ForeignKey("games.game_id", ondelete="CASCADE"), nullable=False)
     turn_id = Column(Integer, ForeignKey("turns.turn_id"), nullable=False)
     proposer_id = Column(Integer, ForeignKey("players.player_id"), nullable=False)
     target_id = Column(Integer, ForeignKey("players.player_id"), nullable=False)
@@ -175,7 +175,7 @@ class ProposalResponse(Base):
     __tablename__ = "proposal_responses"
     response_id = Column(Integer, primary_key=True, autoincrement=True)
     proposal_id = Column(Integer, ForeignKey("proposals.proposal_id", ondelete="CASCADE"), nullable=False)
-    player_id = Column(Integer, ForeignKey("players.player_id"), nullable=False)
+    player_id = Column(Integer, ForeignKey("players.player_id", ondelete="CASCADE"), nullable=False)
     response = Column(String(16))
     contacted_at = Column(DateTime)
     responded_at = Column(DateTime)
