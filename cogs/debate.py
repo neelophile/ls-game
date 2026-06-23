@@ -557,6 +557,11 @@ class DebateCog(commands.Cog):
             turn.action_taken = action
             turn.completed_at = utcnow()
         session.commit()
+        if action == "pass":
+            guild = self.bot.get_guild(game.guild_id)
+            channel = guild.get_channel(game.channel_id)
+            if channel:
+                await channel.send(f"A player passed their turn.")
         guild = self.bot.get_guild(game.guild_id)
         await self.advance_turn(game, session, guild)
 
