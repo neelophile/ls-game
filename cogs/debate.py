@@ -205,6 +205,7 @@ class ProposalModal(Modal):
             marks = suspicion_checkmarks(target.suspicion)
             embed = Embed(title=f"📜 Proposal — {cfg_label}",
                           description=(
+                              f"**Proposal From** {player.alias}\n"
                               f"**Target:** {target.alias} {marks}\n\n"
                               f"*\"{text}\"*"
                               ), color=Color.dark_red())
@@ -299,7 +300,7 @@ class AgreeModal(Modal):
             proposal.status = ProposalStatus.agreed
             session.commit()
             channel = self.cog.bot.get_guild(game.guild_id).get_channel(game.channel_id)
-            embed = Embed(title="✅ Proposal Agreed", description=f"*\"{text}\"*", color=Color.green())
+            embed = Embed(title=f"✅ Proposal Agreed by {player.alias}", description=f"*\"{text}\"*", color=Color.green())
             await channel.send(embed=embed)
             await interaction.response.send_message("You agreed.", ephemeral=True)
             await self.cog.resolve_proposal(interaction, proposal, reversed=False, session=session)
@@ -420,7 +421,7 @@ class RemarkModal(Modal):
                 turn.action_taken = "remark"
             session.commit()
             channel = self.cog.bot.get_guild(game.guild_id).get_channel(game.channel_id)
-            embed = Embed(title=f"🗣️ Remark — {cfg['label']}", description=f"*\"{text}\"*", color=Color.blurple())
+            embed = Embed(title=f"🗣️ Remark — {cfg['label']}", description=f"**From:** {player.alias}\n\n*\"{text}\"*", color=Color.blurple())
             await channel.send(embed=embed)
             await interaction.response.send_message("Remark submitted.", ephemeral=True)
             await self.cog.complete_turn(game, player, "remark", session)
@@ -500,7 +501,7 @@ class MaintainModal(Modal):
             session.commit()
             role_label = "Defender" if player.player_id == argument.defender_id else "Attacker"
             channel = self.cog.bot.get_guild(game.guild_id).get_channel(game.channel_id)
-            embed = Embed(title=f"⚔️ Rebuttal {self.rebuttal_number} — {role_label}", description=f"*\"{text}\"*", color=Color.orange())
+            embed = Embed(title=f"⚔️ Rebuttal {self.rebuttal_number} — {player.alias} ({role_label})", description=f"*\"{text}\"*", color=Color.orange())
             await channel.send(embed=embed)
             await interaction.response.send_message("Rebuttal submitted.", ephemeral=True)
             await self.cog.prompt_rebuttal(interaction, self.argument_id, session)
@@ -540,7 +541,7 @@ class DebateCog(commands.Cog):
             if turn:
                 turn.action_taken = "pass"
             session.commit()
-            guild = self.bot.get_guild(game.guild_id)
+            guild = self.bot.get_guild(game.guild_id) or await self.bot.fetch_guild(game.guild_id)
             channel = guild.get_channel(game.channel_id) if guild else None
             if channel:
                 await channel.send(f"A player's turn timed out and was auto-passed.")
@@ -552,16 +553,17 @@ class DebateCog(commands.Cog):
     async def complete_turn(self, game: Game, player: Player, action: str, session):
         session.expire_all()
         game = session.query(Game).get(game.game_id)
+        player = session.query(Player).get(player.player_id) 
         turn = session.query(Turn).filter_by(game_id=game.game_id, round=game.current_round, turn_index=game.current_turn_index).first()
         if turn:
             turn.action_taken = action
             turn.completed_at = utcnow()
         session.commit()
         if action == "pass":
-            guild = self.bot.get_guild(game.guild_id)
-            channel = guild.get_channel(game.channel_id)
+            guild = self.bot.get_guild(game.guild_id) or await self.bot.fetch_guild(game.guild_id)
+            channel = guild.get_channel(game.channel_id) or await guild.fetch_channel(game.channel_id)
             if channel:
-                await channel.send(f"A player passed their turn.")
+                await channel.send(f"{player.alias} passed their turn.")
         guild = self.bot.get_guild(game.guild_id)
         await self.advance_turn(game, session, guild)
 
@@ -575,7 +577,7 @@ class DebateCog(commands.Cog):
                 i.vp_current = i.vp_max
             game.current_phase = Phase.justice
             session.commit()
-            channel = guild.get_channel(game.channel_id)
+            channel = guild.get_channel(game.channel_id) or await guild.fetch_channel(game.channel_id)
             embed = Embed(title="⚖️ Justice Phase", description="The Debate Phase has ended. All players must now vote to eliminate someone.", color=Color.dark_gold())
             await channel.send(embed=embed)
             justice_cog = self.bot.get_cog("JusticeCog")
@@ -631,14 +633,14 @@ class DebateCog(commands.Cog):
         try:
             proposal = session.query(Proposal).get(proposal_id)
             game = session.query(Game).get(proposal.game_id)
-            guild = self.bot.get_guild(game.guild_id)
+            guild = self.bot.get_guild(game.guild_id) or await self.bot.fetch_guild(game.guild_id)
             if not guild:
                 return
             next_response = session.query(ProposalResponse).filter_by(proposal_id=proposal_id, response=None).first()
             if not next_response:
                 proposal.status = ProposalStatus.passed_through
                 session.commit()
-                channel = guild.get_channel(game.channel_id)
+                channel = guild.get_channel(game.channel_id) or await self.bot.fetch_channel(game.channel_id)
                 target = session.query(Player).get(proposal.target_id)
                 await self.apply_and_announce_proposal(channel, proposal, target, reversed=False, session=session)
                 await self.advance_turn(game, session, guild)
@@ -667,7 +669,7 @@ class DebateCog(commands.Cog):
     async def resolve_proposal(self, interaction: Interaction, proposal: Proposal, reversed: bool, session):
         game = session.query(Game).get(proposal.game_id)
         target = session.query(Player).get(proposal.target_id)
-        channel = self.bot.get_guild(game.guild_id).get_channel(game.channel_id)
+        channel = self.bot.get_guild(game.guild_id).get_channel(game.channel_id) or await self.bot.fetch_guild(game.guild_id).fetch_channel(game.channel_id)
         await self.apply_and_announce_proposal(channel, proposal, target, reversed, session)
         if reversed:
             proposal.status = ProposalStatus.reversed
@@ -730,7 +732,7 @@ class DebateCog(commands.Cog):
         is_defender = argument.current_rebuttal_number % 2 == 1
         player_id = argument.defender_id if is_defender else argument.attacker_id
         player = session.query(Player).get(player_id)
-        member = self.bot.get_guild(game.guild_id).get_member(player.discord_id)
+        member = self.bot.get_guild(game.guild_id).get_member(player.discord_id) or self.bot.fetch_guild(game.guild_id).fetch_member(player.discord_id)
         if not member:
             await self.resolve_argument_pass(argument_id, player_id, interaction)
             return
@@ -753,8 +755,8 @@ class DebateCog(commands.Cog):
             if interaction:
                 guild = interaction.guild
             else:
-                guild = self.bot.get_guild(game.guild_id)
-            channel = guild.get_channel(game.channel_id)
+                guild = self.bot.get_guild(game.guild_id) or await self.bot.fetch_guild(game.guild_id)
+            channel = guild.get_channel(game.channel_id) or await guild.fetch_channel(game.channel_id)
             result_text = "reversed" if reversed else "upheld"
             embed = Embed(title=f"⚔️ Argument Resolved — Proposal {result_text.capitalize()}", color=Color.red() if reversed else Color.green())
             await channel.send(embed=embed)
@@ -800,6 +802,7 @@ class InfoModal(Modal):
             info = Information(game_id=self.game_id, owner_id=self.sender.player_id, target_id=self.receiver.player_id, content=self.info_input.value, is_sent=True)
             session.add(info)
             session.commit()
+            game = session.query(Game).get(self.game_id)
             receiver_member = self.cog.bot.get_guild(game.guild_id).get_member(player.discord_id)
             if receiver_member:
                 try:
