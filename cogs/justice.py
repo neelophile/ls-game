@@ -82,8 +82,8 @@ class JusticeCog(commands.Cog):
 
 
     async def _resolve_votes(self, game: Game, active_players: list, votes: list, session):
-        guild = self.bot.get_guild(game.guild_id)
-        channel = guild.get_channel(game.channel_id)
+        guild = self.bot.get_guild(game.guild_id) or await self.bot.fetch_guild(game.guild_id)
+        channel = guild.get_channel(game.channel_id) or await guild.fetch_channel(game.channel_id)
         tally = {}
         for i in votes:
             tally[i.target_id] = tally.get(i.target_id, 0) + 1
@@ -159,6 +159,12 @@ class JusticeCog(commands.Cog):
         lines = [f"**{i.alias}** → {i.display_name} ({i.role.value})"for i in players]
         embed = Embed(title="📋 Game Over — Full Reveal", description="\n".join(lines), color=Color.blurple())
         await channel.send(embed=embed)
+
+
+    async def _skip_voter(self, game: Game, player: Player, channel, session):
+        game.skipped_voters += 1
+        session.commit()
+        await self.check_votes_complete(game.game_id)
 
 
 async def setup(bot):
