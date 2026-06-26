@@ -329,7 +329,7 @@ class GameCog(commands.Cog):
                 return
             await interaction.response.send_message("Resuming game...", ephemeral=True)
             guild = interaction.guild
-            channel = guild.get_channel(game.channel_id)
+            channel = guild.get_channel(game.channel_id) or await guild.fetch_channel(game.channel_id)
             if game.current_phase == Phase.debate:
                 current_turn = session.query(Turn).filter_by(game_id=game.game_id, round=game.current_round, turn_index=game.current_turn_index).first()
                 if not current_turn:
@@ -363,7 +363,7 @@ class GameCog(commands.Cog):
                 if not game.l_phase_done:
                     l_player = next((i for i in active_players if i.role == Role.l), None)
                     if l_player:
-                        l_member = guild.get_member(l_player.discord_id) or await interaction.guild.fetch_member(player.discord_id)
+                        l_member = guild.get_member(l_player.discord_id) or await interaction.guild.fetch_member(l_player.discord_id)
                         if l_member:
                             options = [SelectOption(label=i.alias, value=str(i.player_id)) for i in active_players if i.player_id != l_player.player_id]
                             try:
@@ -375,7 +375,7 @@ class GameCog(commands.Cog):
                 if game.kira_phase_target == 0:
                     kira_player = next((i for i in active_players if i.role == Role.kira), None)
                     if kira_player:
-                        kira_member = guild.get_member(kira_player.discord_id) or await interaction.guild.fetch_member(player.discord_id)
+                        kira_member = guild.get_member(kira_player.discord_id) or await interaction.guild.fetch_member(kira_player.discord_id)
                         if kira_member:
                             try:
                                 await kira_member.send(f"**Kira's Judgment — Round {game.current_round}**\nDo you wish to eliminate a player?", view=KiraJudgmentView(resolution_cog, kira_player, game))
