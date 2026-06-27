@@ -1,6 +1,6 @@
 # L's Game
 
-A Discord bot implementation of **Death Note: L's Game**, a social deduction game for 5–8 players inspired by Death Note (Ohba/Obata)
+A Discord bot social deduction game for 5–8 players inspired by Death Note (Ohba/Obata)
 
 ---
 
