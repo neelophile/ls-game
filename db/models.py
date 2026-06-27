@@ -219,7 +219,7 @@ class Vote(Base):
     game_id = Column(Integer, ForeignKey("games.game_id", ondelete="CASCADE"), nullable=False)
     round = Column(Integer, nullable=False)
     voter_id = Column(Integer, ForeignKey("players.player_id"), nullable=False)
-    target_id = Column(Integer, ForeignKey("players.player_id"), nullable=False)
+    target_id = Column(Integer, ForeignKey("players.player_id", ondelete="CASCADE"), nullable=False)
     game = relationship("Game", back_populates="votes")
     voter = relationship("Player", foreign_keys=[voter_id])
     target = relationship("Player", foreign_keys=[target_id])
