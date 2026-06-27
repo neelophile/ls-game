@@ -202,7 +202,7 @@ class Rebuttal(Base):
     __tablename__ = "rebuttals"
     rebuttal_id = Column(Integer, primary_key=True, autoincrement=True)
     argument_id = Column(Integer, ForeignKey("arguments.argument_id", ondelete="CASCADE"), nullable=False)
-    player_id = Column(Integer, ForeignKey("players.player_id"), nullable=False)
+    player_id = Column(Integer, ForeignKey("players.player_id", ondelete="CASCADE"), nullable=False)
     rebuttal_number = Column(Integer, nullable=False)
     message = Column(Text)
     word_count = Column(Integer, default=0)
@@ -218,7 +218,7 @@ class Vote(Base):
     vote_id = Column(Integer, primary_key=True, autoincrement=True)
     game_id = Column(Integer, ForeignKey("games.game_id", ondelete="CASCADE"), nullable=False)
     round = Column(Integer, nullable=False)
-    voter_id = Column(Integer, ForeignKey("players.player_id"), nullable=False)
+    voter_id = Column(Integer, ForeignKey("players.player_id", ondelete="CASCADE"), nullable=False)
     target_id = Column(Integer, ForeignKey("players.player_id", ondelete="CASCADE"), nullable=False)
     game = relationship("Game", back_populates="votes")
     voter = relationship("Player", foreign_keys=[voter_id])

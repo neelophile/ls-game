@@ -98,10 +98,9 @@ def wrong_channel(interaction: Interaction, game: Game):
 
 
 class JoinModal(Modal):
-    def __init__(self, cog, game):
+    def __init__(self, cog):
         super().__init__(title="Join L's Game")
         self.cog = cog
-        self.game = game
         self.alias_input = TextInput(label="Choose your alias", style=TextStyle.short, placeholder="This will be your public identity during the game.", required=True, min_length=2, max_length=32)
         self.add_item(self.alias_input)
 
@@ -109,7 +108,17 @@ class JoinModal(Modal):
     async def on_submit(self, interaction: Interaction):
         session = get_session()
         try:
-            game = session.query(Game).get(self.game.game_id)
+            game = session.query(Game).filter_by(guild_id=interaction.guild.id, status=GameStatus.lobby).first()
+            if not game:
+                await interaction.response.send_message("No open lobby found.", ephemeral=True)
+                return
+            if interaction.channel_id != game.channel_id:
+                await interaction.response.send_message("Please use this command in the game channel.", ephemeral=True)
+                return
+            current_count = session.query(Player).filter_by(game_id=game.game_id).count()
+            if current_count >= game.player_count:
+                await interaction.response.send_message("The lobby is full.", ephemeral=True)
+                return
             alias = self.alias_input.value.strip()
             existing_alias = session.query(Player).filter_by(game_id=game.game_id, alias=alias).first()
             existing_player = session.query(Player).filter_by(game_id=game.game_id, discord_id=interaction.user.id).first()
@@ -173,26 +182,7 @@ class GameCog(commands.Cog):
 
     @app_commands.command(name="join", description="Join the current game lobby.")
     async def join(self, interaction: Interaction):
-        session = get_session()
-        try:
-            game = session.query(Game).filter_by(guild_id=interaction.guild_id, status=GameStatus.lobby).first()
-            if not game:
-                await interaction.response.send_message("No open lobby found.", ephemeral=True)
-                return
-            if wrong_channel(interaction, game):
-                await interaction.response.send_message("Please use this command in the game channel.", ephemeral=True)
-                return
-            existing_player = session.query(Player).filter_by(game_id=game.game_id, discord_id=interaction.user.id).first()
-            if existing_player:
-                await interaction.response.send_message("You've already joined.", ephemeral=True)
-                return
-            current_count = session.query(Player).filter_by(game_id=game.game_id).count()
-            if current_count >= game.player_count:
-                await interaction.response.send_message("The lobby is full.", ephemeral=True)
-                return
-            await interaction.response.send_modal(JoinModal(self, game))
-        finally:
-            session.close()
+        await interaction.response.send_modal(JoinModal(self))
         
 
     @app_commands.command(name="start", description="Start the game. Admin only.")
