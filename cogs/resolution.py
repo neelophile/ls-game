@@ -181,8 +181,8 @@ class ResolutionCog(commands.Cog):
         game = session.query(Game).get(game_id)
         try:
             if not game.l_phase_done or game.kira_phase_target == 0:
-            session.close()
-            return
+                session.close()
+                return
         eliminate_id = game.kira_phase_target if game.kira_phase_target > 0 else None
         try:
             guild = self.bot.get_guild(game.guild_id) or await self.bot.fetch_guild(game.guild_id)
