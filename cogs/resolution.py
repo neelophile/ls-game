@@ -178,13 +178,11 @@ class ResolutionCog(commands.Cog):
 
     async def _check_both_done(self, game_id: int):
         session = get_session()
-        game = session.query(Game).get(game_id)
         try:
+            game = session.query(Game).get(game_id)
             if not game.l_phase_done or game.kira_phase_target == 0:
-                session.close()
                 return
-        eliminate_id = game.kira_phase_target if game.kira_phase_target > 0 else None
-        try:
+            eliminate_id = game.kira_phase_target if game.kira_phase_target > 0 else None
             guild = self.bot.get_guild(game.guild_id) or await self.bot.fetch_guild(game.guild_id)
             channel = guild.get_channel(game.channel_id) or await guild.fetch_channel(game.channel_id)
             if eliminate_id:
