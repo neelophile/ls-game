@@ -541,6 +541,20 @@ class DebateCog(commands.Cog):
             if turn:
                 turn.action_taken = "pass"
             session.commit()
+            if player.role == Role.l:
+                justice_cog = self.bot.get_cog("JusticeCog")
+                if justice_cog:
+                    guild = self.bot.get_guild(game.guild_id) or await self.bot.fetch_guild(game.guild_id)
+                    channel = guild.get_channel(game.channel_id) or await guild.fetch_channel(game.channel_id)
+                    await justice_cog.check_win(game, session, channel, player)
+                return
+            if player.role == Role.kira:
+                justice_cog = self.bot.get_cog("JusticeCog")
+                if justice_cog:
+                    guild = self.bot.get_guild(game.guild_id) or await self.bot.fetch_guild(game.guild_id)
+                    channel = guild.get_channel(game.channel_id) or await guild.fetch_channel(game.channel_id)
+                    await justice_cog.check_win(game, session, channel, player)
+                return
             guild = self.bot.get_guild(game.guild_id) or await self.bot.fetch_guild(game.guild_id)
             channel = guild.get_channel(game.channel_id) if guild else None
             if channel:
@@ -689,10 +703,9 @@ class DebateCog(commands.Cog):
         old_susp = target.suspicion - susp_delta
         marks = suspicion_checkmarks(target.suspicion)
         milestone_msg = ""
-        if old_susp < 40 <= target.suspicion:
+        if old_susp < 80 <= target.suspicion:                                                             milestone_msg = f"🚨 **{target.alias}** has reached 80 Suspicion! {marks}"
+        elif old_susp < 40 <= target.suspicion:
             milestone_msg = f"⚠️ **{target.alias}** has reached 40 Suspicion! {marks}"
-        elif old_susp < 80 <= target.suspicion:
-            milestone_msg = f"🚨 **{target.alias}** has reached 80 Suspicion! {marks}"
         result = "reversed" if reversed else "passed"
         embed = Embed(title=f"📋 Proposal {result.capitalize()}", description=(
             f"**Target:** {target.alias} {marks}\n"
@@ -752,7 +765,7 @@ class DebateCog(commands.Cog):
             proposal.effectiveness += argument.total_word_count
             reversed = (passer_id == argument.defender_id)
             session.commit()
-            if interaction:
+            if interaction and interaction.guild:
                 guild = interaction.guild
             else:
                 guild = self.bot.get_guild(game.guild_id) or await self.bot.fetch_guild(game.guild_id)

@@ -305,12 +305,20 @@ class GameCog(commands.Cog):
             player.is_eliminated = True
             player.timeout_at = None
             session.commit()
+            if player.role in (Role.l, Role.kira):
+                justice_cog = self.bot.get_cog("JusticeCog")
+                guild = interaction.guild or self.bot.get_guild(game.guild_id)
+                channel = guild.get_channel(game.channel_id) or await guild.fetch_channel(game.channel_id)
+                await interaction.response.send_message(f"**{member.display_name}** has forfeited.", ephemeral=False)
+                if justice_cog:
+                    await justice_cog.check_win(game, session, channel, player)
+                return
             await interaction.response.send_message(f"**{member.display_name}** has forfeited and been removed from the game. Their remaining turns will be auto-passed.")
             current_turn = session.query(Turn).filter_by(game_id=game.game_id, round=game.current_round, turn_index=game.current_turn_index).first()
             if current_turn and current_turn.player_id == player.player_id:
                 debate_cog = self.bot.get_cog("DebateCog")
                 if debate_cog:
-                    await debate_cog.advance_turn(game, session, interaction.guild)
+                    await debate_cog.advance_turn(game, session, interaction.guild or self.bot.get_guild(game.guild_id))
         finally:
             session.close()
 
