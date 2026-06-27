@@ -187,8 +187,8 @@ class Argument(Base):
     __tablename__ = "arguments"
     argument_id = Column(Integer, primary_key=True, autoincrement=True)
     proposal_id = Column(Integer, ForeignKey("proposals.proposal_id", ondelete="CASCADE"), nullable=False)
-    defender_id = Column(Integer, ForeignKey("players.player_id"), nullable=False)
-    attacker_id = Column(Integer, ForeignKey("players.player_id"), nullable=False)
+    defender_id = Column(Integer, ForeignKey("players.player_id", ondelete="CASCADE"), nullable=False)
+    attacker_id = Column(Integer, ForeignKey("players.player_id", ondelete="CASCADE"), nullable=False)
     status = Column(Enum(ArgumentStatus), default=ArgumentStatus.active)
     current_rebuttal_number = Column(Integer, default=1)
     total_word_count = Column(Integer, default=0)
