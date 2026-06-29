@@ -5,6 +5,7 @@ from db.database import get_session
 from db.models import utcnow, Game, Player, Turn, Proposal, ProposalResponse, Argument, Rebuttal, GameStatus, Phase, Role, Tone, RemarkType, ProposalStatus, ArgumentStatus, TrustMatrix, Information, InformationType
 from random import shuffle
 from datetime import timedelta
+import re
 
 
 TONE_CONFIG = {
@@ -703,7 +704,8 @@ class DebateCog(commands.Cog):
         old_susp = target.suspicion - susp_delta
         marks = suspicion_checkmarks(target.suspicion)
         milestone_msg = ""
-        if old_susp < 80 <= target.suspicion:                                                             milestone_msg = f"🚨 **{target.alias}** has reached 80 Suspicion! {marks}"
+        if old_susp < 80 <= target.suspicion:
+            milestone_msg = f"🚨 **{target.alias}** has reached 80 Suspicion! {marks}":
         elif old_susp < 40 <= target.suspicion:
             milestone_msg = f"⚠️ **{target.alias}** has reached 40 Suspicion! {marks}"
         result = "reversed" if reversed else "passed"
@@ -820,6 +822,12 @@ class InfoModal(Modal):
             if receiver_member:
                 try:
                     await receiver_member.send(f"📨 **Information received from a player:**\n> {self.info_input.value}")
+                    url_pattern = re.compile(r'https?://\S+\.(?:png|jpg|jpeg|gif|webp)', re.IGNORECASE)
+                    match = url_pattern.search(self.info_input_value)
+                    if match:
+                        embed = Embed()
+                        embed.set_image(url=match.group())
+                        await receiver_member.send(embed=embed)
                 except Forbidden:
                     pass
             await interaction.response.send_message("Information sent.", ephemeral=True)
