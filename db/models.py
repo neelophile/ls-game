@@ -85,6 +85,7 @@ class Game(Base):
     l_knows_kira = Column(Boolean, default=False)
     l_phase_done = Column(Boolean, default=False)
     kira_phase_target = Column(Integer, default=0)
+    kira_judgement_used = Column(Boolean, default=False)
 
 
 class Player(Base):
