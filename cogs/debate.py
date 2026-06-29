@@ -705,7 +705,7 @@ class DebateCog(commands.Cog):
         marks = suspicion_checkmarks(target.suspicion)
         milestone_msg = ""
         if old_susp < 80 <= target.suspicion:
-            milestone_msg = f"🚨 **{target.alias}** has reached 80 Suspicion! {marks}":
+            milestone_msg = f"🚨 **{target.alias}** has reached 80 Suspicion! {marks}"
         elif old_susp < 40 <= target.suspicion:
             milestone_msg = f"⚠️ **{target.alias}** has reached 40 Suspicion! {marks}"
         result = "reversed" if reversed else "passed"
