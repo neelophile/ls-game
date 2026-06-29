@@ -199,7 +199,7 @@ class GameCog(commands.Cog):
                               f"A new game has been created in this channel.\n"
                               f"**Players needed:** {players}\n"
                               f"**Turn timeout:** {timeout} hours\n\n"
-                              f"Press the button below to enter.. Your identity will be hidden until the game ends.\n"
+                              f"Press the button below to enter. Your identity will be hidden until the game ends.\n"
                               f"**Make sure your DMs are open.**"
                 ),
                 color=Color.dark_red())

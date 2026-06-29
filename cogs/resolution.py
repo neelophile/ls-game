@@ -80,6 +80,8 @@ class KiraJudgmentView(View):
         session = get_session()
         try:
             game = session.query(Game).get(self.game.game_id)
+            if game.kira_judgement_used:
+                await interaction.response.send_message("You have already made your judgement this round.", ephemeral=True)
             active_players = session.query(Player).filter(Player.game_id == game.game_id, Player.is_eliminated == False, Player.player_id != self.player.player_id).all()
             options = [SelectOption(label=i.alias, value=str(i.player_id)) for i in active_players]
             await interaction.response.send_message("Choose a player to eliminate:", view=KiraTargetView(self.cog, self.player, game, options), ephemeral=True)
@@ -103,6 +105,10 @@ class KiraTargetView(View):
         session = get_session()
         try:
             game = session.query(Game).get(self.game.game_id)
+            if game.kira_judgement_used:
+                await interaction.response.send_message("You have already made your judgement this round.", ephemeral=True)
+                return
+            game.kira_judgement_used = True
             kira = session.query(Player).get(self.player.player_id)
             kira.vp_max = max(1, kira.vp_max // 2)
             kira.vp_current = min(kira.vp_current, kira.vp_max)
@@ -212,6 +218,7 @@ class ResolutionCog(commands.Cog):
         game.current_turn_index = 0
         game.current_phase = Phase.debate
         game.skipped_voters = 0
+        game.kira_judgement_used = False
         session.commit()
         active_players = session.query(Player).filter_by(game_id=game.game_id, is_eliminated=False).order_by(Player.turn_order).all()
         if not active_players:
