@@ -734,7 +734,7 @@ class DebateCog(commands.Cog):
         existing_info = session.query(Information).filter_by(game_id=game_id, owner_id=sender.player_id, target_id=sender.player_id).first()
         prefill = existing_info.content if existing_info else ""
         try:
-            await sender_member.send(f"**{receiver.alias}** has reached 100 Trust with you. Send them your information:", view=InfoSubmitView(self, game_id, sender, receiver, prefill))
+            await sender_member.send(f"**{receiver.alias}** has reached 100 Trust with you. Send them your information:", view=InfoSubmitView(self, game_id, sender.player_id, receiver.player_id, prefill))
         except Forbidden:
             pass
 
@@ -781,12 +781,12 @@ class DebateCog(commands.Cog):
 
 
 class InfoSubmitView(View):
-    def __init__(self, cog, game_id, sender, receiver, prefill):
+    def __init__(self, cog, game_id, sender_id, receiver_id, prefill):
         super().__init__(timeout=86400)
         self.cog = cog
         self.game_id = game_id
-        self.sender = sender
-        self.receiver = receiver
+        self.sender_id = sender_id
+        self.receiver_id = receiver_id
         self.prefill = prefill
         btn = Button(label="Submit Information", style=ButtonStyle.primary)
         btn.callback = self.on_click
@@ -794,29 +794,29 @@ class InfoSubmitView(View):
 
 
     async def on_click(self, interaction: Interaction):
-        await interaction.response.send_modal(InfoModal(self.cog, self.game_id, self.sender, self.receiver, self.prefill))
+        await interaction.response.send_modal(InfoModal(self.cog, self.game_id, self.sender_id, self.receiver_id, self.prefill))
 
 
 class InfoModal(Modal):
-    def __init__(self, cog, game_id, sender, receiver, prefill):
+    def __init__(self, cog, game_id, sender_id, receiver_id, prefill):
         super().__init__(title="Send Information")
         self.cog = cog
         self.game_id = game_id
-        self.sender = sender
-        self.receiver = receiver
-        self.info_input = TextInput(
-            label=f"Information for {receiver.alias}", style=TextStyle.paragraph, default=prefill, required=True, max_length=300)
+        self.sender_id = sender_id
+        self.receiver_id = receiver_id
+        self.info_input = TextInput(label=f"Your information", style=TextStyle.paragraph, default=prefill, required=True, max_length=300)
         self.add_item(self.info_input)
 
 
     async def on_submit(self, interaction: Interaction):
         session = get_session()
         try:
-            info = Information(game_id=self.game_id, owner_id=self.sender.player_id, target_id=self.receiver.player_id, content=self.info_input.value, is_sent=True)
+            receiver = session.query(Player).get(self.receiver_id)
+            info = Information(game_id=self.game_id, owner_id=self.sender_id, target_id=self.receiver_id, content=self.info_input.value, is_sent=True)
             session.add(info)
             session.commit()
             game = session.query(Game).get(self.game_id)
-            receiver_member = self.cog.bot.get_guild(game.guild_id).get_member(player.discord_id)
+            receiver_member = self.cog.bot.get_guild(game.guild_id).get_member(receiver.discord_id)
             if receiver_member:
                 try:
                     await receiver_member.send(f"📨 **Information received from a player:**\n> {self.info_input.value}")
