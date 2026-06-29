@@ -1,6 +1,6 @@
-from discord import app_commands, Interaction, Embed, Color, Forbidden, Member, TextStyle, SelectOption
+from discord import app_commands, Interaction, Embed, Color, Forbidden, Member, TextStyle, SelectOption, ButtonStyle, ui
 from discord.ext import commands
-from discord.ui import Modal, TextInput, View
+from discord.ui import Modal, TextInput, View, Button
 from db.database import get_session
 from db.models import Game, Player, TrustMatrix, Information, GameStatus, Phase, Role, InformationType, Turn, Vote
 from random import choice, shuffle, sample
@@ -98,9 +98,10 @@ def wrong_channel(interaction: Interaction, game: Game):
 
 
 class JoinModal(Modal):
-    def __init__(self, cog):
+    def __init__(self, cog,  game_id: int):
         super().__init__(title="Join L's Game")
         self.cog = cog
+        self.game_id = game_id
         self.alias_input = TextInput(label="Choose your alias", style=TextStyle.short, placeholder="This will be your public identity during the game.", required=True, min_length=2, max_length=32)
         self.add_item(self.alias_input)
 
@@ -108,12 +109,9 @@ class JoinModal(Modal):
     async def on_submit(self, interaction: Interaction):
         session = get_session()
         try:
-            game = session.query(Game).filter_by(guild_id=interaction.guild.id, status=GameStatus.lobby).first()
+            game = session.query(Game).filter_by(game_id=self.game_id, status=GameStatus.lobby).first()
             if not game:
-                await interaction.response.send_message("No open lobby found.", ephemeral=True)
-                return
-            if interaction.channel_id != game.channel_id:
-                await interaction.response.send_message("Please use this command in the game channel.", ephemeral=True)
+                await interaction.response.send_message("The lobby is no longer open.", ephemeral=True)
                 return
             current_count = session.query(Player).filter_by(game_id=game.game_id).count()
             if current_count >= game.player_count:
@@ -123,7 +121,7 @@ class JoinModal(Modal):
             existing_alias = session.query(Player).filter_by(game_id=game.game_id, alias=alias).first()
             existing_player = session.query(Player).filter_by(game_id=game.game_id, discord_id=interaction.user.id).first()
             if existing_alias:
-                await interaction.response.send_message("That alias is already taken. Please use `/join` again and choose a different one.", ephemeral=True)
+                await interaction.response.send_message("That alias is already taken. Please try again.", ephemeral=True)
                 return
             if existing_player:
                 await interaction.response.send_message("You're already joined.", ephemeral=True)
@@ -140,6 +138,37 @@ class JoinModal(Modal):
             await interaction.response.send_message(f"A new player has joined the lobby. **{current_count}/{game.player_count}** players ready.")
         finally:
             session.close()
+
+
+class JoinView(View):
+    def __init__(self, cog, game_id: int):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.game_id = game_id
+
+    
+    @ui.button(label="Join Game", style=ButtonStyle.primary, custom_id="join_game")
+    async def join_button(self, interaction: Interaction, button: Button):
+        session = get_session()
+        try:
+            game = session.query(Game).filter_by(game_id=self.game_id, status=GameStatus.lobby).first()
+            if not game:
+                await interaction.response.send_message("The lobby is no longer open.", ephemeral=True)
+                return
+            if interaction.channel_id != game.channel_id:
+                await interaction.response.send_message("Please use this button in the game channel.", ephemeral=True)
+                return
+            existing_player = session.query(Player).filter_by(game_id=game.game_id, discord_id=interaction.user.id).first()
+            if existing_player:
+                await interaction.response.send_message("You're already joined.", ephemeral=True)
+                return
+            current_count = session.query(Player).filter_by(game_id=game.game_id).count()
+            if current_count >= game.player_count:
+                await interaction.response.send_message("The lobby is full.", ephemeral=True)
+                return
+        finally:
+            session.close()
+        await interaction.response.send_modal(JoinModal(self.cog, self.game_id))
 
 
 class GameCog(commands.Cog):
@@ -170,19 +199,14 @@ class GameCog(commands.Cog):
                               f"A new game has been created in this channel.\n"
                               f"**Players needed:** {players}\n"
                               f"**Turn timeout:** {timeout} hours\n\n"
-                              f"Use `/join` to enter. Your identity will be hidden until the game ends.\n"
+                              f"Press the button below to enter.. Your identity will be hidden until the game ends.\n"
                               f"**Make sure your DMs are open.**"
                 ),
                 color=Color.dark_red())
             embed.set_footer(text="Admin: use /start when enough players have joined.")
-            await interaction.followup.send(embed=embed)
+            await interaction.followup.send(embed=embed, view=JoinView(self, game.game_id))
         finally:
             session.close()
-
-
-    @app_commands.command(name="join", description="Join the current game lobby.")
-    async def join(self, interaction: Interaction):
-        await interaction.response.send_modal(JoinModal(self))
         
 
     @app_commands.command(name="start", description="Start the game. Admin only.")
