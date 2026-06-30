@@ -81,6 +81,15 @@ def suspicion_checkmarks(suspicion: int):
     return ""
 
 
+async def is_game_active(game_id: int):
+    session = get_session()
+    try:
+        game = session.query(Game).get(game_id)
+        return game is not None and game.status == GameStatus.active
+    finally:
+        session.close()
+
+
 class ActionSelectView(View):
     def __init__(self, cog, player: Player, game: Game):
         super().__init__(timeout=game.timeout_hours * 3600)
@@ -107,6 +116,9 @@ class ActionSelectView(View):
 
 
     async def on_select(self, interaction: Interaction):
+        if not await is_game_active(self.game.game_id):
+            await interaction.response.send_message("This game has ended.", ephemeral=True)
+            return
         value = interaction.data["values"][0]
         session = get_session()
         try:
@@ -154,6 +166,9 @@ class ToneSelectView(View):
 
 
     async def on_select(self, interaction: Interaction):
+        if not await is_game_active(self.game.game_id):
+            await interaction.response.send_message("This game is not active.", ephemeral=True)
+            return
         tone = Tone(interaction.data["values"][0])
         session = get_session()
         try:
@@ -246,6 +261,9 @@ class AgreeDisagreeView(View):
 
 
     async def on_select(self, interaction: Interaction):
+        if not await is_game_active(self.game.game_id):
+            await interaction.response.send_message("This game is not active.", ephemeral=True)
+            return
         value = interaction.data["values"][0]
         session = get_session()
         try:
@@ -373,6 +391,9 @@ class RemarkSelectView(View):
 
 
     async def on_select(self, interaction: Interaction):
+        if not await is_game_active(self.game.game_id):
+            await interaction.response.send_message("This game is not active.", ephemeral=True)
+            return
         rtype = RemarkType(interaction.data["values"][0])
         cfg = REMARK_CONFIG[rtype]
         await interaction.response.send_modal(RemarkModal(self.cog, self.player, self.game, rtype, cfg))
@@ -458,6 +479,9 @@ class RebuttalView(View):
 
 
     async def on_select(self, interaction: Interaction):
+        if not await is_game_active(self.game.game_id):
+            await interaction.response.send_message("This game is not active.", ephemeral=True)
+            return
         value = interaction.data["values"][0]
         if value == "pass":
             await interaction.response.send_message("You passed the argument.", ephemeral=True)
@@ -796,6 +820,9 @@ class InfoSubmitView(View):
 
 
     async def on_click(self, interaction: Interaction):
+        if not await is_game_active(self.game_id):
+            await interaction.response.send_message("This game is not active", ephemeral=True)
+            return
         await interaction.response.send_modal(InfoModal(self.cog, self.game_id, self.sender_id, self.receiver_id, self.prefill))
 
 

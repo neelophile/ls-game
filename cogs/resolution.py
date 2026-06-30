@@ -3,6 +3,7 @@ from discord.ext import commands
 from discord.ui import View, Select, Button
 from db.database import get_session
 from db.models import Game, Player, Phase, Role, Turn
+from cogs.debate import is_game_active
 
 
 class InvestigateSelectView(View):
@@ -26,6 +27,9 @@ class InvestigateSelectView(View):
 
 
     async def on_select(self, interaction: Interaction):
+        if not await is_game_active(self.game.game_id):
+            await interaction.response.send_message("This game is not active.", ephemeral=True)
+            return
         target_id = int(interaction.data["values"][0])
         session = get_session()
         try:
@@ -82,6 +86,7 @@ class KiraJudgmentView(View):
             game = session.query(Game).get(self.game.game_id)
             if game.kira_judgement_used:
                 await interaction.response.send_message("You have already made your judgement this round.", ephemeral=True)
+                return
             active_players = session.query(Player).filter(Player.game_id == game.game_id, Player.is_eliminated == False, Player.player_id != self.player.player_id).all()
             options = [SelectOption(label=i.alias, value=str(i.player_id)) for i in active_players]
             await interaction.response.send_message("Choose a player to eliminate:", view=KiraTargetView(self.cog, self.player, game, options), ephemeral=True)
@@ -101,6 +106,9 @@ class KiraTargetView(View):
 
 
     async def on_select(self, interaction: Interaction):
+        if not await is_game_active(self.game.game_id):
+            await interaction.response.send_message("This game is not active.", ephemeral=True)
+            return
         target_id = int(interaction.data["values"][0])
         session = get_session()
         try:
@@ -237,3 +245,4 @@ class ResolutionCog(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(ResolutionCog(bot))
+
