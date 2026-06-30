@@ -3,6 +3,7 @@ from discord.ext import commands
 from discord.ui import View, Select
 from db.database import get_session
 from db.models import Game, Player, Vote, GameStatus, Phase, Role
+from cogs.debate import is_game_active
 
 
 class VoteView(View):
@@ -31,6 +32,9 @@ class VoteView(View):
 
 
     async def on_select(self, interaction: Interaction):
+        if not await is_game_active(self.game.game_id):
+            await interaction.response.send_message("This game is not active.", ephemeral=True)
+            return
         target_id = int(interaction.data["values"][0])
         session = get_session()
         try:
@@ -169,3 +173,4 @@ class JusticeCog(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(JusticeCog(bot))
+
