@@ -124,6 +124,10 @@ class ActionSelectView(View):
         try:
             player = session.query(Player).get(self.player.player_id)
             game = session.query(Game).get(self.game.game_id)
+            turn = session.query(Turn).filter_by(game_id=game.game_id, round=game.current_round, turn_index=game.current_turn_index).first()
+            if not turn or turn.player_id != player.player_id or turn.action_taken is not None:
+                await interaction.response.send_message("This turn has already been played.", ephemeral=True)
+                return
             if value == "pass":
                 await interaction.response.send_message("You passed your turn.", ephemeral=True)
                 await self.cog.complete_turn(game, player, "pass", session)
@@ -540,6 +544,12 @@ class DebateCog(commands.Cog):
 
 
     async def prompt_turn(self, guild: Guild, game: Game, player: Player):
+        session = get_session()
+        try:
+            game = session.query(Game).get(game.game_id)
+            player = session.query(Player).get(player.player_id)
+        finally:
+            session.close()
         member = guild.get_member(player.discord_id)
         if not member:
             return
