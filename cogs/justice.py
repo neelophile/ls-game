@@ -42,11 +42,14 @@ class VoteView(View):
             player = session.query(Player).get(self.player.player_id)
             existing = session.query(Vote).filter_by(game_id=game.game_id, round=game.current_round, voter_id=player.player_id).first()
             if existing:
-                await interaction.response.send_message("You've already voted.", ephemeral=True)
+                existing.target_id = target_id
+                session.commit()
+                await interaction.response.send_message("Your vote has been changed.", ephemeral=True)
                 return
-            session.add(Vote(game_id=game.game_id, round=game.current_round, voter_id=player.player_id, target_id=target_id))
-            session.commit()
-            await interaction.response.send_message("Your vote has been cast.", ephemeral=True)
+            else:
+                session.add(Vote(game_id=game.game_id, round=game.current_round, voter_id=player.player_id, target_id=target_id))
+                session.commit()
+                await interaction.response.send_message("Your vote has been cast.", ephemeral=True)
             await self.cog.check_votes_complete(game.game_id, interaction)
         finally:
             session.close()

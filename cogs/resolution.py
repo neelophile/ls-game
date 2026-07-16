@@ -75,6 +75,11 @@ class KiraJudgmentView(View):
         session = get_session()
         try:
             game = session.query(Game).get(self.game.game_id)
+            if game.kira_judgement_used:
+                await interaction.response.send_message("You have already passed your judgement this round.", ephemeral=True)
+                return
+            game.kira_judgement_used = True
+            session.commit()
             await self.cog.kira_done(game.game_id, eliminated_id=None)
         finally:
             session.close()
