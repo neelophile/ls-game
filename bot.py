@@ -19,9 +19,14 @@ cogs = ['cogs.game', 'cogs.debate', 'cogs.justice', 'cogs.resolution']
 async def timeout_check():
     session = get_session()
     try:
-        now = utcnow()
+        now = datetime.now(timezone.utc)
         timed_out = session.query(Player).filter(Player.timeout_at != None, Player.timeout_at <= now, Player.is_eliminated == False).all()
         for i in timed_out:
+            game = session.query(Game).filter(i.game_id)
+            if not game or game.status != GameStatus.active:
+                i.timeout_at = None
+                session.commit()
+                continue
             i.timeout_at = None
             session.commit()
             debate_cog = bot.get_cog("DebateCog")
