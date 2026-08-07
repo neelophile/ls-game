@@ -136,8 +136,10 @@ class JusticeCog(commands.Cog):
             await resolution_cog.start_resolution(guild, game, active_players, session)
 
 
-    async def check_win(self, game: Game, session, channel, eliminated: Player) -> bool:
-        """Check win conditions after elimination. Returns True if game over."""
+    async def check_win(self, game: Game, session, channel, eliminated: Player):
+        game = session.query(Game).get(game.game_id)
+        if game.status == GameStatus.finished:
+            return True
         active_players = session.query(Player).filter_by(game_id=game.game_id, is_eliminated=False).all()
         active_roles = [i.role for i in active_players]
         if eliminated.role == Role.kira:

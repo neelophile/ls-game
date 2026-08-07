@@ -252,6 +252,8 @@ class AgreeDisagreeView(View):
 
 
     async def on_timeout(self):
+        if not await is_game_active(self.game.game_id):
+            return
         session = get_session()
         try:
             response = session.query(ProposalResponse).filter_by(proposal_id=self.proposal_id, player_id=self.player.player_id, response=None).first()
@@ -473,8 +475,10 @@ class RebuttalView(View):
 
 
     async def on_timeout(self):
+        if not await is_game_active(self.game.game_id):
+            return
         session = get_session()
-        try:
+        try :
             argument = session.query(Argument).get(self.argument_id)
             if argument and argument.status == ArgumentStatus.active:
                 await self.cog.resolve_argument_pass(self.argument_id, self.player.player_id)
@@ -486,6 +490,14 @@ class RebuttalView(View):
         if not await is_game_active(self.game.game_id):
             await interaction.response.send_message("This game is not active.", ephemeral=True)
             return
+        session = get_session()
+        try:
+            player = session.query(Player).get(self.player.player_id)
+            if player.is_eliminated:
+                await interaction.response.send_message("You are no longer in the game.", ephemeral=True)
+                return
+        finally:
+            session.close()
         value = interaction.data["values"][0]
         if value == "pass":
             await interaction.response.send_message("You passed the argument.", ephemeral=True)
