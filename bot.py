@@ -4,7 +4,7 @@ from os import getenv
 from discord.ext import commands, tasks
 from db.database import init_db, get_session
 from db.models import Player, Game, Turn, Phase, utcnow
-from database import database
+from datetime import datetime, timezone
 
 
 load_dotenv()
