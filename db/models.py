@@ -58,12 +58,36 @@ class RemarkType(enum.Enum):
     lower_suspicion = "lower_suspicion"
     restore_vp = "restore_vp"
     raise_max_vp = "raise_max_vp"
+    search_for_evidence = "search_for_evidence"
 
 
 class InformationType(enum.Enum):
     two_possible_l = "two_possible_l"
     two_not_l = "two_not_l"
     one_worshipper = "one_worshipper"
+
+
+class ItemType(enum.Enum):
+    tip_off = "tip_off"
+    red_herring = "red_herring"
+    alias_swap = "alias_swap"
+    telephone = "telephone"
+    wiretap = "wiretap"
+    notebook_page = "notebook_page"
+
+
+class ItemRarity(enum.Enum):
+    common = "common"
+    uncommon = "uncommon"
+    rare = "rare"
+
+
+class DinnerStatus(enum.Enum):
+    pending = "pending"
+    accepted = "accepted"
+    declined = "declined"
+    active = "active"
+    archived = "archived"
 
 
 class Game(Base):
@@ -86,6 +110,8 @@ class Game(Base):
     l_phase_done = Column(Boolean, default=False)
     kira_phase_target = Column(Integer, default=0)
     kira_judgement_used = Column(Boolean, default=False)
+    dinners = relationship("Dinner", back_populates="game", passive_deletes=True)
+    items = relationship("Items", back_populates="game", passive_deletes=True)
 
 
 class Player(Base):
@@ -103,6 +129,7 @@ class Player(Base):
     timeout_at = Column(DateTime)
     game = relationship("Game", back_populates="players")
     alias = Column(String(64))
+    dinner_used = Column(Boolean, default=False)
     __table_args__ = (
         UniqueConstraint("game_id", "discord_id", name="uq_game_player"),
         UniqueConstraint("game_id", "alias", name="uq_game_alias")
@@ -227,4 +254,46 @@ class Vote(Base):
     __table_args__ = (
         UniqueConstraint("game_id", "round", "voter_id", name="uq_vote_per_round"),
     )
+
+
+class Items(Base):
+    __tablename__ = "items"
+    item_id = Column(Integer, primary_key=True, autoincrement=True)
+    game_id = Column(Integer, ForeignKey("games.game_id", ondelete="CASCADE"), nullable=False)
+    owner_id = Column(Integer, ForeignKey("players.player_id", ondelete="CASCADE"), nullable=False)
+    item_type = Column(Enum(ItemType), nullable=False)
+    rarity = Column(Enum(ItemRarity), nullable=False)
+    is_used = Column(Boolean, default=False)
+    obtained_at = Column(DateTime, default=utcnow)
+    game = relationship("Game", back_populates="items")
+    owner = relationship("Player", foreign_keys=[owner_id])
+
+
+class Dinner(Base):
+    __tablaname__ = "dinners"
+    dinner_id = Column(Integer, primary_key=True, autoincrement=True)
+    game_id = Column(Integer, ForeignKey("games.game_id", ondelete="CASCADE"), nullable=False)
+    inviter_id = Column(Integer, ForeignKey("players.player_id", ondelete="CASCADE"), nullable=False)
+    invitee_id = Column(Integer, ForeignKey("players.player_id", ondelele="CASCADE"), nullable=False)
+    thread_id = Column(BigInteger)
+    status = Column(Enum(DinnerStatus), nullable=False)
+    round = Column(Integer, nullable=False)
+    game = relationship("Game", back_populates="dinners")
+    inviter = relationship("Player", foreign_keys=[inviter_id])
+    invitee = relationship("Player", foreign_keys=[invitee_id])
+
+
+class Telephone(Base):
+    __tablename__ = "telephones"
+    telephone_id = Column(Integer, primary_key=True, autoincrement=True)
+    game_id = Column(Integer, ForeignKey("games.game_id", ondelete="CASCADE"), nullable=False)
+    item_id = Column(Integer, ForeignKey("items.item_id", ondelete="CASCADE"), nullable=False)
+    current_hop = Column(Integer, default=0)
+    original_message = Column(Text, nullable=False)
+    current_message = Column(Text, nullable=False)
+    next_player_id = Column(Integer, ForeignKey("players.player_id", ondelete="CASCADE"), nullable=False)
+    is_complete = Column(Boolean, default=False)
+    game = relationship("Game")
+    item = relationship("Item")
+    next_player = relationship("Player", foreign_keys=[next_player_id])
 
