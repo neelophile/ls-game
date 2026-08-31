@@ -101,7 +101,7 @@ class Game(Base):
     current_turn_index = Column(Integer, default=0)
     timeout_hours = Column(Integer, default=24)
     created_at = Column(DateTime, default=utcnow)
-    players = relationship("Player", back_populates="game", passive_deletes=True)
+    players = relationship("Player", back_populates="game", passive_deletes=True, foreign_keys="Player.game_id")
     turns = relationship("Turn", back_populates="game", passive_deletes=True)
     votes = relationship("Vote", back_populates="game", passive_deletes=True)
     player_count = Column(Integer, default=5, nullable=False)
@@ -113,8 +113,8 @@ class Game(Base):
     wiretap_target_id = Column(Integer, ForeignKey("players.player_id", ondelete="CASCADE"))
     wiretap_owner_id = Column(Integer, ForeignKey("players.player_id", ondelete="CASCADE"))
     red_herring_player_id = Column(Integer, ForeignKey("players.player_id", ondelete="CASCADE"))
-    dinners = relationship("Dinner", back_populates="game", passive_deletes=True)
-    items = relationship("Item", back_populates="game", passive_deletes=True)
+    dinners = relationship("Dinner", back_populates="game", passive_deletes=True, foreign_keys="Dinner.game_id")
+    items = relationship("Item", back_populates="game", passive_deletes=True, foreign_keys="Item.game_id")
 
 
 class Player(Base):
