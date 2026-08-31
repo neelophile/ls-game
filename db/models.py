@@ -114,7 +114,7 @@ class Game(Base):
     wiretap_owner_id = Column(Integer, ForeignKey("players.player_id", ondelete="CASCADE"))
     red_herring_player_id = Column(Integer, ForeignKey("players.player_id", ondelete="CASCADE"))
     dinners = relationship("Dinner", back_populates="game", passive_deletes=True)
-    items = relationship("Items", back_populates="game", passive_deletes=True)
+    items = relationship("Item", back_populates="game", passive_deletes=True)
 
 
 class Player(Base):
@@ -260,7 +260,7 @@ class Vote(Base):
     )
 
 
-class Items(Base):
+class Item(Base):
     __tablename__ = "items"
     item_id = Column(Integer, primary_key=True, autoincrement=True)
     game_id = Column(Integer, ForeignKey("games.game_id", ondelete="CASCADE"), nullable=False)
@@ -278,7 +278,7 @@ class Dinner(Base):
     dinner_id = Column(Integer, primary_key=True, autoincrement=True)
     game_id = Column(Integer, ForeignKey("games.game_id", ondelete="CASCADE"), nullable=False)
     inviter_id = Column(Integer, ForeignKey("players.player_id", ondelete="CASCADE"), nullable=False)
-    invitee_id = Column(Integer, ForeignKey("players.player_id", ondelele="CASCADE"), nullable=False)
+    invitee_id = Column(Integer, ForeignKey("players.player_id", ondelete="CASCADE"), nullable=False)
     thread_id = Column(BigInteger)
     status = Column(Enum(DinnerStatus), nullable=False)
     round = Column(Integer, nullable=False)
