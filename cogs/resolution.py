@@ -36,6 +36,10 @@ class InvestigateSelectView(View):
             game = session.query(Game).get(self.game.game_id)
             target = session.query(Player).get(target_id)
             is_kira = target.role == Role.kira
+            if game.red_herring_player_id == target.player_id:
+                is_kira = False
+                game.red_herring_player_id = None
+                session.commit()
             if is_kira:
                 await interaction.response.send_message(f"✅ Yes. **{target.alias}** is Kira.", ephemeral=True)
                 game.l_knows_kira = True
@@ -71,7 +75,6 @@ class KiraJudgmentView(View):
 
 
     async def on_no(self, interaction: Interaction):
-        await interaction.response.send_message("You chose not to eliminate anyone.", ephemeral=True)
         session = get_session()
         try:
             game = session.query(Game).get(self.game.game_id)
@@ -80,6 +83,7 @@ class KiraJudgmentView(View):
                 return
             game.kira_judgement_used = True
             session.commit()
+            await interaction.response.send_message("You chose not to eliminate anyone.", ephemeral=True)
             await self.cog.kira_done(game.game_id, eliminated_id=None)
         finally:
             session.close()
@@ -231,6 +235,10 @@ class ResolutionCog(commands.Cog):
         game.current_turn_index = 0
         game.current_phase = Phase.debate
         game.skipped_voters = 0
+        items_cog = self.bot.get_cog("ItemsCog")
+        if items_cog:
+            await items_cog.archive_dinners(game, session)
+            await items_cog.reset_round(game, session)
         game.kira_judgement_used = False
         session.commit()
         active_players = session.query(Player).filter_by(game_id=game.game_id, is_eliminated=False).order_by(Player.turn_order).all()

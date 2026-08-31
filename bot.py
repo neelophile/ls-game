@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from os import getenv
 from discord.ext import commands, tasks
 from db.database import init_db, get_session
-from db.models import Player, Game, Turn, Phase, utcnow
+from db.models import Player, Game, Turn, Phase, utcnow, GameStatus
 from datetime import datetime, timezone
 
 
@@ -13,7 +13,7 @@ intents = Intents.default()
 intents.message_content = True
 intents.members = True
 bot = commands.Bot(command_prefix='.', intents=intents)
-cogs = ['cogs.game', 'cogs.debate', 'cogs.justice', 'cogs.resolution']
+cogs = ['cogs.game', 'cogs.debate', 'cogs.justice', 'cogs.resolution', 'cogs.items']
 
 
 @tasks.loop(minutes=1)
@@ -23,7 +23,7 @@ async def timeout_check():
         now = datetime.now(timezone.utc)
         timed_out = session.query(Player).filter(Player.timeout_at != None, Player.timeout_at <= now, Player.is_eliminated == False).all()
         for i in timed_out:
-            game = session.query(Game).filter(i.game_id)
+            game = session.query(Game).get(i.game_id)
             if not game or game.status != GameStatus.active:
                 i.timeout_at = None
                 session.commit()
