@@ -130,7 +130,7 @@ class Player(Base):
     turn_order = Column(Integer)
     is_eliminated = Column(Boolean, default=False)
     timeout_at = Column(DateTime)
-    game = relationship("Game", back_populates="players")
+    game = relationship("Game", back_populates="players", foreign_keys=[game_id])
     alias = Column(String(64))
     dinner_used = Column(Boolean, default=False)
     original_alias = Column(String(64))
