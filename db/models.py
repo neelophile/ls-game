@@ -274,7 +274,7 @@ class Items(Base):
 
 
 class Dinner(Base):
-    __tablaname__ = "dinners"
+    __tablename__ = "dinners"
     dinner_id = Column(Integer, primary_key=True, autoincrement=True)
     game_id = Column(Integer, ForeignKey("games.game_id", ondelete="CASCADE"), nullable=False)
     inviter_id = Column(Integer, ForeignKey("players.player_id", ondelete="CASCADE"), nullable=False)
