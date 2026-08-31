@@ -110,6 +110,9 @@ class Game(Base):
     l_phase_done = Column(Boolean, default=False)
     kira_phase_target = Column(Integer, default=0)
     kira_judgement_used = Column(Boolean, default=False)
+    wiretap_target_id = Column(Integer, ForeignKey("players.player_id", ondelete="CASCADE"))
+    wiretap_owner_id = Column(Integer, ForeignKey("players.player_id", ondelete="CASCADE"))
+    red_herring_player_id = Column(Integer, ForeignKey("players.player_id", ondelete="CASCADE"))
     dinners = relationship("Dinner", back_populates="game", passive_deletes=True)
     items = relationship("Items", back_populates="game", passive_deletes=True)
 
@@ -130,6 +133,7 @@ class Player(Base):
     game = relationship("Game", back_populates="players")
     alias = Column(String(64))
     dinner_used = Column(Boolean, default=False)
+    original_alias = Column(String(64))
     __table_args__ = (
         UniqueConstraint("game_id", "discord_id", name="uq_game_player"),
         UniqueConstraint("game_id", "alias", name="uq_game_alias")

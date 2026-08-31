@@ -65,7 +65,7 @@ class JusticeCog(commands.Cog):
         channel = guild.get_channel(game.channel_id)
         for player in active_players:
             player_options = [i for i in options if int(i.value) != player.player_id]
-            member = guild.get_member(player.discord_id)
+            member = guild.get_member(player.discord_id) or await guild.fetch_member(player.discord_id)
             if not member:
                 await self._skip_voter(game, player, channel, session)
                 continue

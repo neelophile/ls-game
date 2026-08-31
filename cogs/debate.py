@@ -20,7 +20,8 @@ REMARK_CONFIG = {
     RemarkType.raise_suspicion: {"label": "Raise Everyone's Suspicion", "min_vp": 70, "vp_per_word": 14, "effect_per_word": 1},
     RemarkType.lower_suspicion: {"label": "Lower Everyone's Suspicion", "min_vp": 70, "vp_per_word": 14, "effect_per_word": -1},
     RemarkType.restore_vp: {"label": "Restore VP", "min_vp": 40, "vp_per_word": 8, "effect_per_word": None},
-    RemarkType.raise_max_vp: {"label": "Raise Max VP", "min_vp": 70, "vp_per_word": 14, "effect_per_word": None}
+    RemarkType.raise_max_vp: {"label": "Raise Max VP", "min_vp": 70, "vp_per_word": 14, "effect_per_word": None},
+    RemarkType.search_for_evidence: {"label": "Search For Evidence", "min_vp": 50, "vp_per_word": 10, "effect_per_word": None}
 }
 AGREE_MIN_VP = 20
 AGREE_VP_PER_WORD = 4
@@ -106,6 +107,8 @@ class ActionSelectView(View):
 
 
     async def on_timeout(self):
+        if not await is_game_active(self.game.game_id):
+            return
         session = get_session()
         try:
             player = session.query(Player).get(self.player.player_id)
@@ -444,6 +447,10 @@ class RemarkModal(Modal):
             elif self.rtype == RemarkType.raise_max_vp:
                 player.vp_max += 10
                 player.vp_current = min(player.vp_current, player.vp_max)
+            elif self.rtype == RemarkType.search_for_evidence:
+                items_cog = self.cog.bot.get_cog("ItemsCog")
+                if items_cog:
+                    await items_cog.grant_random_item(player, game, session, channel)
             turn = session.query(Turn).filter_by(game_id=game.game_id, round=game.current_round, turn_index=game.current_turn_index).first()
             if turn:
                 turn.action_taken = "remark"
@@ -478,7 +485,7 @@ class RebuttalView(View):
         if not await is_game_active(self.game.game_id):
             return
         session = get_session()
-        try :
+        try:
             argument = session.query(Argument).get(self.argument_id)
             if argument and argument.status == ArgumentStatus.active:
                 await self.cog.resolve_argument_pass(self.argument_id, self.player.player_id)
@@ -793,7 +800,7 @@ class DebateCog(commands.Cog):
         is_defender = argument.current_rebuttal_number % 2 == 1
         player_id = argument.defender_id if is_defender else argument.attacker_id
         player = session.query(Player).get(player_id)
-        member = self.bot.get_guild(game.guild_id).get_member(player.discord_id) or self.bot.fetch_guild(game.guild_id).fetch_member(player.discord_id)
+        member = self.bot.get_guild(game.guild_id).get_member(player.discord_id) or await self.bot.fetch_guild(game.guild_id).fetch_member(player.discord_id)
         if not member:
             await self.resolve_argument_pass(argument_id, player_id, interaction)
             return
@@ -872,13 +879,25 @@ class InfoModal(Modal):
                 try:
                     await receiver_member.send(f"📨 **Information received from a player:**\n> {self.info_input.value}")
                     url_pattern = re.compile(r'https?://\S+\.(?:png|jpg|jpeg|gif|webp)', re.IGNORECASE)
-                    match = url_pattern.search(self.info_input_value)
+                    match = url_pattern.search(self.info_input.value)
                     if match:
                         embed = Embed()
                         embed.set_image(url=match.group())
                         await receiver_member.send(embed=embed)
                 except Forbidden:
                     pass
+            if game.wiretap_target_id == self.receiver_id:
+                wiretap_owner = session.query(Player).get(game.wiretap_owner_id)
+                guild = self.cog.bot.get_guild(game.guild_id) or await self.cog.bot.fetch_guild(game.guild_id)
+                owner_member = guild.get_member(wiretap_owner.discord_id) or await guild.fetch_member(wiretap_owner.discord_id)
+                if owner_member:
+                    try:
+                        await owner_member.send(f"🎙️ **Wiretap intercepted:**\n> {self.info_input.value}")
+                    except Forbidden:
+                        pass
+                game.wiretap_target_id = None
+                game.wiretap_owner_id = None
+                session.commit()
             await interaction.response.send_message("Information sent.", ephemeral=True)
         finally:
             session.close()
