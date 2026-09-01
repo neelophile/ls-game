@@ -110,9 +110,9 @@ class Game(Base):
     l_phase_done = Column(Boolean, default=False)
     kira_phase_target = Column(Integer, default=0)
     kira_judgement_used = Column(Boolean, default=False)
-    wiretap_target_id = Column(Integer, ForeignKey("players.player_id", ondelete="CASCADE"))
-    wiretap_owner_id = Column(Integer, ForeignKey("players.player_id", ondelete="CASCADE"))
-    red_herring_player_id = Column(Integer, ForeignKey("players.player_id", ondelete="CASCADE"))
+    wiretap_target_id = Column(Integer)
+    wiretap_owner_id = Column(Integer)
+    red_herring_player_id = Column(Integer)
     dinners = relationship("Dinner", back_populates="game", passive_deletes=True, foreign_keys="Dinner.game_id")
     items = relationship("Item", back_populates="game", passive_deletes=True, foreign_keys="Item.game_id")
 
