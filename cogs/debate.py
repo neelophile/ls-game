@@ -434,6 +434,8 @@ class RemarkModal(Modal):
                 return
             player.vp_current -= cost
             all_players = session.query(Player).filter_by(game_id=game.game_id, is_eliminated=False).all()
+            guild = self.cog.bot.get_guild(game.guild_id) or await self.cog.bot.fetch_guild(game.guild_id)
+            channel = guild.get_channel(game.channel_id) or await guild.fetch_channel(game.channel_id)
             if self.rtype == RemarkType.raise_suspicion:
                 delta = wc * cfg["effect_per_word"]
                 for i in all_players:
@@ -455,7 +457,6 @@ class RemarkModal(Modal):
             if turn:
                 turn.action_taken = "remark"
             session.commit()
-            channel = self.cog.bot.get_guild(game.guild_id).get_channel(game.channel_id)
             embed = Embed(title=f"🗣️ Remark — {cfg['label']}", description=f"**From:** {player.alias}\n\n*\"{text}\"*", color=Color.blurple())
             await channel.send(embed=embed)
             await interaction.response.send_message("Remark submitted.", ephemeral=True)
