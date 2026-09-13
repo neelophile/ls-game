@@ -371,7 +371,7 @@ class ItemsCog(commands.Cog):
             session.commit()
             channel = guild.get_channel(game.channel_id) or await guild.fetch_channel(game.channel_id)
             await channel.send(embed=Embed(title="🐟 Red Herring", description="A player has planted a Red Herring. Someone's Suspicion rose by 30.", color=Color.orange()))
-            await interaction.response.send_message("Red Herring planted.", ephemeral=True)
+            await interaction.followup.send("Red Herring planted.", ephemeral=True)
         elif item.item_type == ItemType.alias_swap:
             await interaction.response.send_modal(AliasSwapModal(self, item.item_id, game, player))
         elif item.item_type == ItemType.telephone:
@@ -379,11 +379,11 @@ class ItemsCog(commands.Cog):
         elif item.item_type == ItemType.wiretap:
             active_others = session.query(Player).filter(Player.game_id == game.game_id, Player.is_eliminated == False, Player.player_id != player.player_id).all()
             options = [SelectOption(label=i.alias, value=str(i.player_id)) for i in active_others]
-            await interaction.response.send_message("Choose a player to wiretap:", view=WiretapTargetView(self, item.item_id, game, options), ephemeral=True)
+            await interaction.followup.send("Choose a player to wiretap:", view=WiretapTargetView(self, item.item_id, game, options), ephemeral=True)
         elif item.item_type == ItemType.notebook_page:
             active_others = session.query(Player).filter(Player.game_id == game.game_id, Player.is_eliminated == False, Player.player_id != player.player_id).all()
             options = [SelectOption(label=i.alias, value=str(i.player_id)) for i in active_others]
-            await interaction.response.send_message("Choose a player to eliminate:", view=NotebookPageTargetView(self, item.item_id, game, player, options), ephemeral=True)
+            await interaction.followup.send("Choose a player to eliminate:", view=NotebookPageTargetView(self, item.item_id, game, player, options), ephemeral=True)
 
 
     async def prompt_telephone_hop(self, game: Game, telephone_id: int, session):
