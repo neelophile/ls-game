@@ -1,4 +1,4 @@
-from discord import app_commands, Interaction, Embed, Color, SelectOption, TextStyle, Guild, ButtonStyle
+from discord import app_commands, Interaction, Embed, Color, SelectOption, TextStyle, Guild, ButtonStyle, NotFound
 from discord.ext import commands
 from discord.ui import View, Select, Modal, TextInput, Button
 from db.database import get_session
@@ -119,27 +119,30 @@ class ActionSelectView(View):
 
 
     async def on_select(self, interaction: Interaction):
-        if not await is_game_active(self.game.game_id):
-            await interaction.response.send_message("This game has ended.", ephemeral=True)
-            return
-        value = interaction.data["values"][0]
-        session = get_session()
         try:
-            player = session.query(Player).get(self.player.player_id)
-            game = session.query(Game).get(self.game.game_id)
-            turn = session.query(Turn).filter_by(game_id=game.game_id, round=game.current_round, turn_index=game.current_turn_index).first()
-            if not turn or turn.player_id != player.player_id or turn.action_taken is not None:
-                await interaction.response.send_message("This turn has already been played.", ephemeral=True)
+            if not await is_game_active(self.game.game_id):
+                await interaction.response.send_message("This game has ended.", ephemeral=True)
                 return
-            if value == "pass":
-                await interaction.response.send_message("You passed your turn.", ephemeral=True)
-                await self.cog.complete_turn(game, player, "pass", session)
-            elif value == "proposal":
-                await interaction.response.send_message("Choose your tone for your proposal:", view=ToneSelectView(self.cog, player, game), ephemeral=True)
-            elif value == "remark":
-                await interaction.response.send_message("Choose a remark type:", view=RemarkSelectView(self.cog, player, game), ephemeral=True)
-        finally:
-            session.close()
+            value = interaction.data["values"][0]
+            session = get_session()
+            try:
+                player = session.query(Player).get(self.player.player_id)
+                game = session.query(Game).get(self.game.game_id)
+                turn = session.query(Turn).filter_by(game_id=game.game_id, round=game.current_round, turn_index=game.current_turn_index).first()
+                if not turn or turn.player_id != player.player_id or turn.action_taken is not None:
+                    await interaction.response.send_message("This turn has already been played.", ephemeral=True)
+                    return
+                if value == "pass":
+                    await interaction.response.send_message("You passed your turn.", ephemeral=True)
+                    await self.cog.complete_turn(game, player, "pass", session)
+                elif value == "proposal":
+                    await interaction.response.send_message("Choose your tone for your proposal:", view=ToneSelectView(self.cog, player, game), ephemeral=True)
+                elif value == "remark":
+                    await interaction.response.send_message("Choose a remark type:", view=RemarkSelectView(self.cog, player, game), ephemeral=True)
+            finally:
+                session.close()
+        except NotFound:
+            pass
 
 
 class TargetSelectView(View):
@@ -421,48 +424,51 @@ class RemarkModal(Modal):
 
 
     async def on_submit(self, interaction: Interaction):
-        session = get_session()
         try:
-            player = session.query(Player).get(self.player.player_id)
-            game = session.query(Game).get(self.game.game_id)
-            text = self.message_input.value
-            wc = count_words(text)
-            cfg = self.cfg
-            cost = calc_vp_cost(cfg["min_vp"], cfg["vp_per_word"], wc)
-            if player.vp_current < cost:
-                await interaction.response.send_message(f"Not enough VP. Costs **{cost} VP**, you have **{player.vp_current} VP**.\nPlease choose a new action.", view=ActionSelectView(self.cog, player, game), ephemeral=True)
-                return
-            player.vp_current -= cost
-            all_players = session.query(Player).filter_by(game_id=game.game_id, is_eliminated=False).all()
-            guild = self.cog.bot.get_guild(game.guild_id) or await self.cog.bot.fetch_guild(game.guild_id)
-            channel = guild.get_channel(game.channel_id) or await guild.fetch_channel(game.channel_id)
-            if self.rtype == RemarkType.raise_suspicion:
-                delta = wc * cfg["effect_per_word"]
-                for i in all_players:
-                    i.suspicion = max(0, min(100, i.suspicion + delta))
-            elif self.rtype == RemarkType.lower_suspicion:
-                delta = wc * abs(cfg["effect_per_word"])
-                for i in all_players:
-                    i.suspicion = max(0, min(100, i.suspicion - delta))
-            elif self.rtype == RemarkType.restore_vp:
-                player.vp_current = player.vp_max
-            elif self.rtype == RemarkType.raise_max_vp:
-                player.vp_max += 10
-                player.vp_current = min(player.vp_current, player.vp_max)
-            elif self.rtype == RemarkType.search_for_evidence:
-                items_cog = self.cog.bot.get_cog("ItemsCog")
-                if items_cog:
-                    await items_cog.grant_random_item(player, game, session, channel)
-            turn = session.query(Turn).filter_by(game_id=game.game_id, round=game.current_round, turn_index=game.current_turn_index).first()
-            if turn:
-                turn.action_taken = "remark"
-            session.commit()
-            embed = Embed(title=f"🗣️ Remark — {cfg['label']}", description=f"**From:** {player.alias}\n\n*\"{text}\"*", color=Color.blurple())
-            await channel.send(embed=embed)
-            await interaction.response.send_message("Remark submitted.", ephemeral=True)
-            await self.cog.complete_turn(game, player, "remark", session)
-        finally:
-            session.close()
+            session = get_session()
+            try:
+                player = session.query(Player).get(self.player.player_id)
+                game = session.query(Game).get(self.game.game_id)
+                text = self.message_input.value
+                wc = count_words(text)
+                cfg = self.cfg
+                cost = calc_vp_cost(cfg["min_vp"], cfg["vp_per_word"], wc)
+                if player.vp_current < cost:
+                    await interaction.response.send_message(f"Not enough VP. Costs **{cost} VP**, you have **{player.vp_current} VP**.\nPlease choose a new action.", view=ActionSelectView(self.cog, player, game), ephemeral=True)
+                    return
+                player.vp_current -= cost
+                all_players = session.query(Player).filter_by(game_id=game.game_id, is_eliminated=False).all()
+                guild = self.cog.bot.get_guild(game.guild_id) or await self.cog.bot.fetch_guild(game.guild_id)
+                channel = guild.get_channel(game.channel_id) or await guild.fetch_channel(game.channel_id)
+                if self.rtype == RemarkType.raise_suspicion:
+                    delta = wc * cfg["effect_per_word"]
+                    for i in all_players:
+                        i.suspicion = max(0, min(100, i.suspicion + delta))
+                elif self.rtype == RemarkType.lower_suspicion:
+                    delta = wc * abs(cfg["effect_per_word"])
+                    for i in all_players:
+                        i.suspicion = max(0, min(100, i.suspicion - delta))
+                elif self.rtype == RemarkType.restore_vp:
+                    player.vp_current = player.vp_max
+                elif self.rtype == RemarkType.raise_max_vp:
+                    player.vp_max += 10
+                    player.vp_current = min(player.vp_current, player.vp_max)
+                elif self.rtype == RemarkType.search_for_evidence:
+                    items_cog = self.cog.bot.get_cog("ItemsCog")
+                    if items_cog:
+                        await items_cog.grant_random_item(player, game, session, channel)
+                turn = session.query(Turn).filter_by(game_id=game.game_id, round=game.current_round, turn_index=game.current_turn_index).first()
+                if turn:
+                    turn.action_taken = "remark"
+                session.commit()
+                embed = Embed(title=f"🗣️ Remark — {cfg['label']}", description=f"**From:** {player.alias}\n\n*\"{text}\"*", color=Color.blurple())
+                await channel.send(embed=embed)
+                await interaction.response.send_message("Remark submitted.", ephemeral=True)
+                await self.cog.complete_turn(game, player, "remark", session)
+            finally:
+                session.close()
+        except NotFound:
+            pass
 
 
 class RebuttalView(View):
