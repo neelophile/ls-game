@@ -104,6 +104,9 @@ class ActionSelectView(View):
             ])
         select.callback = self.on_select
         self.add_item(select)
+        dinner_btn = Button(label="🍽️ Host Dinner (30 VP)", style=ButtonStyle.secondary)
+        dinner_btn.callback = self.on_dinner
+        self.add_item(dinner_btn)
 
 
     async def on_timeout(self):
@@ -143,6 +146,34 @@ class ActionSelectView(View):
                 session.close()
         except NotFound:
             pass
+
+
+    async def on_dinner(self, interaction: Interaction):
+        if not await is_game_active(self.game.game_id):
+            await interaction.response.send_message("This game has ended.", ephemeral=True)
+            return
+        session = get_session()
+        try:
+            game = session.query(Game).get(self.game.game_id)
+            if game.current_phase != Phase.debate:
+                await interaction.response.send_message("Dinner can only be hosted during the Debate Phase.", ephemeral=True)
+                return
+            player = session.query(Player).get(self.player.player_id)
+            if player.dinner_used:
+                await interaction.response.send_message("You have already hosted a dinner this round.", ephemeral=True)
+                return
+            if player.vp_current < 30:
+                await interaction.response.send_message(f"Not enough VP. Dinner costs 30 VP, you have {player.vp_current}.", ephemeral=True)
+                return
+            player.vp_current -= 30
+            player.dinner_used = True
+            session.commit()
+            active_others = session.query(Player).filter(Player.game_id == game.game_id, Player.is_eliminated == False, Player.player_id != player.player_id).all()
+            options = [SelectOption(label=i.alias, value=str(i.player_id)) for i in active_others]
+            from cogs.items import DinnerInviteView
+            await interaction.response.send_message("Choose a player to invite to dinner:", view=DinnerInviteView(self.cog, player, game, options), ephemeral=True)
+        finally:
+            session.close()
 
 
 class TargetSelectView(View):
@@ -461,8 +492,9 @@ class RemarkModal(Modal):
                 if turn:
                     turn.action_taken = "remark"
                 session.commit()
-                embed = Embed(title=f"🗣️ Remark — {cfg['label']}", description=f"**From:** {player.alias}\n\n*\"{text}\"*", color=Color.blurple())
-                await channel.send(embed=embed)
+                if self.rtype != RemarkType.search_for_evidence:
+                    embed = Embed(title=f"🗣️ Remark — {cfg['label']}", description=f"**From:** {player.alias}\n\n*\"{text}\"*", color=Color.blurple())
+                    await channel.send(embed=embed)
                 await interaction.response.send_message("Remark submitted.", ephemeral=True)
                 await self.cog.complete_turn(game, player, "remark", session)
             finally:
@@ -542,6 +574,9 @@ class MaintainModal(Modal):
             player = session.query(Player).get(self.player.player_id)
             game = session.query(Game).get(self.game.game_id)
             argument = session.query(Argument).get(self.argument_id)
+            if argument.current_rebuttal_number != self.rebuttal_number:
+                await interaction.response.send_message("This rebuttal has already been submitted.", ephemeral=True)
+                return
             text = self.message_input.value
             wc = count_words(text)
             cost = calc_vp_cost(self.min_vp, self.vp_per_word, wc)

@@ -1,10 +1,10 @@
 from random import choices, choice
-from discord import Interaction, Embed, Color, SelectOption, Guild, Forbidden, ButtonStyle, TextStyle, app_commands
+from discord import Interaction, Embed, Color, SelectOption, Guild, Forbidden, ButtonStyle, TextStyle
 from discord.ext import commands
 from discord.ui import View, Select, Button, Modal, TextInput
-from db.models import utcnow, Game, Player, Item, Dinner, Telephone, GameStatus, ItemType, ItemRarity, DinnerStatus, Phase
+from db.models import utcnow, Game, Player, Item, Dinner, Telephone, ItemType, ItemRarity, DinnerStatus, Phase
 from db.database import get_session
-from cogs.debate import suspicion_checkmarks
+from cogs.debate import suspicion_checkmarks, is_game_active
 
 
 RARITY_WEIGHTS = {
@@ -335,6 +335,73 @@ class NotebookPageTargetView(View):
             session.close()
 
 
+class UseItemDMView(View):
+    def __init__(self, cog, player: Player, game: Game, item: Item):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.player = player
+        self.game = game
+        self.item = item
+        btn = Button(label=f"Use {ITEM_LABELS[item.item_type]}", style=ButtonStyle.primary)
+        btn.callback = self.on_click
+        self.add_item(btn)
+
+
+    async def on_click(self, interaction: Interaction):
+        if not await is_game_active(self.game.game_id):
+            await interaction.response.send_message("This game has ended.", ephemeral=True)
+            return
+        session = get_session()
+        try:
+            game = session.query(Game).get(self.game.game_id)
+            player = session.query(Player).get(self.player.player_id)
+            item = session.query(Item).get(self.item.item_id)
+            if item.is_used:
+                await interaction.response.send_message("This item has already been used.", ephemeral=True)
+                return
+            if item.item_type not in (ItemType.alias_swap, ItemType.telephone):
+                await interaction.response.defer(ephemeral=True)
+            await self.cog.use_item(interaction, item, player, game, session)
+        finally:
+            session.close()
+
+
+class DinnerInviteView(View):
+    def __init__(self, cog, player: Player, game: Game, options: list):
+        super().__init__(timeout=300)
+        self.cog = cog
+        self.player = player
+        self.game = game
+        select = Select(placeholder="Choose a player to invite...", options=options)
+        select.callback = self.on_select
+        self.add_item(select)
+
+
+    async def on_select(self, interaction: Interaction):
+        invitee_id = int(interaction.data["values"][0])
+        session = get_session()
+        try:
+            game = session.query(Game).get(self.game.game_id)
+            inviter = session.query(Player).get(self.player.player_id)
+            invitee = session.query(Player).filter(Player.game_id == game.game_id, Player.player_id == invitee_id, Player.is_eliminated == False).first()
+            if not invitee:
+                await interaction.response.send_message("Invalid player.", ephemeral=True)
+                return
+            dinner = Dinner(game_id=game.game_id, inviter_id=inviter.player_id, invitee_id=invitee.player_id, status=DinnerStatus.pending, round=game.current_round)
+            session.add(dinner)
+            session.commit()
+            await interaction.response.send_message(f"Dinner invitation sent to **{invitee.alias}**.", ephemeral=True)
+            guild = self.cog.bot.get_guild(game.guild_id) or await self.cog.bot.fetch_guild(game.guild_id)
+            member = guild.get_member(invitee.discord_id) or await guild.fetch_member(invitee.discord_id)
+            if member:
+                try:
+                    await member.send(f"🍽️ **{inviter.alias}** has invited you to dinner. Do you accept?", view=DinnerResponseView(self.cog, dinner.dinner_id, game))
+                except Forbidden:
+                    pass
+        finally:
+            session.close()
+
+
 class ItemsCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -352,7 +419,7 @@ class ItemsCog(commands.Cog):
         member = guild.get_member(player.discord_id) or await guild.fetch_member(player.discord_id)
         if member:
             try:
-                await member.send(embed=Embed(title=f"🔍 Evidence Found — {RARITY_LABELS[rarity]}", description=f"**{ITEM_LABELS[item_type]}**\n{ITEM_DESCRIPTIONS[item_type]}\n\nUse `/useitem` to activate it.", color=Color.gold()))
+                await member.send(embed=Embed(title=f"🔍 Evidence Found — {RARITY_LABELS[rarity]}", description=f"**{ITEM_LABELS[item_type]}**\n{ITEM_DESCRIPTIONS[item_type]}", color=Color.gold()), view=UseItemDMView(self, player, game, item))
             except Forbidden:
                 pass
         await channel.send(embed=Embed(title="🔍 Evidence found.", description="A player found evidence while searching.", color=Color.gold()))
@@ -363,7 +430,7 @@ class ItemsCog(commands.Cog):
         if item.item_type == ItemType.tip_off:
             active_others = session.query(Player).filter(Player.game_id == game.game_id, Player.is_eliminated == False, Player.player_id != player.player_id).all()
             options = [SelectOption(label=i.alias, value=str(i.player_id)) for i in active_others]
-            await interaction.response.send_message("Choose a target for your tip-off:", view=TipOffTargetView(self, item.item_id, game, options), ephemeral=True)
+            await interaction.followup.send("Choose a target for your tip-off:", view=TipOffTargetView(self, item.item_id, game, options), ephemeral=True)
         elif item.item_type == ItemType.red_herring:
             player.suspicion = min(100, player.suspicion + 30)
             game.red_herring_player_id = player.player_id
@@ -434,105 +501,6 @@ class ItemsCog(commands.Cog):
                 i.alias = i.original_alias
                 i.original_alias = None
         session.commit()
-
-
-    @app_commands.command(name="useitem", description="Use an item from your inventory.")
-    @app_commands.describe(item="Choose an item to use")
-    async def useitem(self, interaction: Interaction, item: str):
-        await interaction.response.defer(ephemeral=True)
-        session = get_session()
-        try:
-            game = session.query(Game).filter_by(guild_id=interaction.guild_id, status=GameStatus.active).first()
-            if not game:
-                await interaction.followup.send("No active game found.", ephemeral=True)
-                return
-            player = session.query(Player).filter_by(game_id=game.game_id, discord_id=interaction.user.id).first()
-            if not player or player.is_eliminated:
-                await interaction.followup.send("You are not in this game.", ephemeral=True)
-                return
-            item_obj = session.query(Item).filter_by(item_id=int(item), owner_id=player.player_id, is_used=False).first()
-            if not item_obj:
-                await interaction.followup.send("Invalid item.", ephemeral=True)
-                return
-            await self.use_item(interaction, item_obj, player, game, session)
-        finally:
-            session.close()
-
-
-    @useitem.autocomplete("item")
-    async def useitem_autocomplete(self, interaction: Interaction, current: str):
-        session = get_session()
-        try:
-            game = session.query(Game).filter_by(guild_id=interaction.guild_id, status=GameStatus.active).first()
-            if not game:
-                return []
-            player = session.query(Player).filter_by(game_id=game.game_id, discord_id=interaction.user.id).first()
-            if not player:
-                return []
-            items = session.query(Item).filter_by(owner_id=player.player_id, is_used=False).all()
-            return [app_commands.Choice(name=f"{ITEM_LABELS[i.item_type]} ({RARITY_LABELS[i.rarity]})", value=str(i.item_id)) for i in items if current.lower() in ITEM_LABELS[i.item_type].lower()]
-        finally:
-            session.close()
-
-
-    @app_commands.command(name="dinner", description="Invite a player to dinner.")
-    @app_commands.describe(player="Choose a player to invite")
-    async def dinner(self, interaction: Interaction, player: str):
-        await interaction.response.defer(ephemeral=True)
-        session = get_session()
-        try:
-            game = session.query(Game).filter_by(guild_id=interaction.guild_id, status=GameStatus.active).first()
-            if not game:
-                await interaction.followup.send("No active game found.", ephemeral=True)
-                return
-            if game.current_phase != Phase.debate:
-                await interaction.followup.send("Dinner can only be hosted during the Debate Phase.", ephemeral=True)
-                return
-            inviter = session.query(Player).filter_by(game_id=game.game_id, discord_id=interaction.user.id).first()
-            if not inviter or inviter.is_eliminated:
-                await interaction.followup.send("You are not in this game.", ephemeral=True)
-                return
-            if inviter.dinner_used:
-                await interaction.followup.send("You have already hosted a dinner this round.", ephemeral=True)
-                return
-            if inviter.vp_current < 30:
-                await interaction.followup.send(f"Not enough VP. Dinner costs 30 VP, you have {inviter.vp_current}.", ephemeral=True)
-                return
-            invitee = session.query(Player).filter(Player.game_id == game.game_id, Player.player_id == int(player), Player.is_eliminated == False).first()
-            if not invitee:
-                await interaction.followup.send("Invalid player.", ephemeral=True)
-                return
-            inviter.vp_current -= 30
-            inviter.dinner_used = True
-            dinner = Dinner(game_id=game.game_id, inviter_id=inviter.player_id, invitee_id=invitee.player_id, status=DinnerStatus.pending, round=game.current_round,)
-            session.add(dinner)
-            session.commit()
-            await interaction.followup.send(f"Dinner invitation sent to **{invitee.alias}**.", ephemeral=True)
-            guild = interaction.guild or self.bot.get_guild(game.guild_id)
-            member = guild.get_member(invitee.discord_id) or await guild.fetch_member(invitee.discord_id)
-            if member:
-                try:
-                    await member.send(f"🍽️ **{inviter.alias}** has invited you to dinner. Do you accept?", view=DinnerResponseView(self, dinner.dinner_id, game))
-                except Forbidden:
-                    pass
-        finally:
-            session.close()
-
-
-    @dinner.autocomplete("player")
-    async def dinner_autocomplete(self, interaction: Interaction, current: str):
-        session = get_session()
-        try:
-            game = session.query(Game).filter_by(guild_id=interaction.guild_id, status=GameStatus.active).first()
-            if not game:
-                return []
-            inviter = session.query(Player).filter_by(game_id=game.game_id, discord_id=interaction.user.id).first()
-            if not inviter:
-                return []
-            players = session.query(Player).filter(Player.game_id == game.game_id, Player.is_eliminated == False, Player.player_id != inviter.player_id).all()
-            return [app_commands.Choice(name=i.alias, value=str(i.player_id)) for i in players if current.lower() in i.alias.lower()]
-        finally:
-            session.close()
 
 
 async def setup(bot):
